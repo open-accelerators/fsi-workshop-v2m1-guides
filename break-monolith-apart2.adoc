@@ -1,20 +1,20 @@
 = Lab4 - Breaking the monolith apart - II
 :experimental:
 
-In the previous lab, you learned how to take an existing monolithic app and refactor a single _inventory_ service using Quarkus.
-The previous lab resulted in you creating an inventory service, but so far we haven’t started _strangling_ the monolith. That is
-because the inventory service is never called directly by the UI. It’s a backend service that is only used only by other backend
-services. In this lab, you will create the catalog service and the catalog service will call the inventory service. When you are
+In the previous lab, you learned how to take an existing monolithic app and refactor a single _transaction_ service using Quarkus.
+The previous lab resulted in you creating an transaction service, but so far we haven’t started _strangling_ the monolith. That is
+because the transaction service is never called directly by the UI. It’s a backend service that is only used only by other backend
+services. In this lab, you will create the account service and the account service will call the transaction service. When you are
 ready, you will change the route to tie the UI calls to new service.
 
-To implement this, we are going to use https://access.redhat.com/products/spring-boot[Red Hat support for Spring Boot^]. The reason for using Spring for this service is to introduce you to
-Spring Boot development, and how https://www.redhat.com/en/products/runtimes[Red Hat Runtimes^] helps to make Spring
+To implement this, we are going to use https://access.redhat.com/accounts/spring-boot[Red Hat support for Spring Boot^]. The reason for using Spring for this service is to introduce you to
+Spring Boot development, and how https://www.redhat.com/en/accounts/runtimes[Red Hat Runtimes^] helps to make Spring
 development on Kubernetes easy. In real life, the reason for choosing Spring Boot vs. others mostly depends on personal preferences,
 like existing knowledge, etc. At the core Spring and Java EE are very similar.
 
 The goal is to produce something like:
 
-image::catalog-goal.png[Greeting, 700]
+image::account-goal.png[Greeting, 700]
 
 === What is Spring Framework?
 
@@ -32,13 +32,13 @@ handled by the container platform instead of an Application Server.
 Another thing you will learn in this lab is one of the techniques to aggregate services using service-to-service calls. Other
 possible solutions would be to use a microservices gateway or combine services using client-side logic.
 
-==== 1. Setup a Catalog project
+==== 1. Setup a Account project
 
 Run the following commands to set up your environment for this lab and start in the right directory:
 
-In the project explorer, expand the _catalog_ project (ignore the red error icons on some files - we'll get to those shortly)
+In the project explorer, expand the _account_ project (ignore the red error icons on some files - we'll get to those shortly)
 
-image::catalog-project.png[catalog-setup, 700]
+image::account-project.png[account-setup, 700]
 
 ==== 2. Examine the Maven project structure
 
@@ -135,7 +135,7 @@ This should also make the red error icons disappear! Now, build the project to m
 
 [source,sh,role="copypaste"]
 ----
-mvn -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/catalog clean package
+mvn -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/account clean package
 ----
 
 If it builds successfully (you will see *BUILD SUCCESS*), you have now successfully executed the first step in this lab.
@@ -148,36 +148,36 @@ In next step of this lab, we will add the logic to be able to read data from the
 
 We are now ready to implement the database repository.
 
-In the catalog project, right-click on the `src/main/java/com/redhat/coolstore/service` directory and select **New File**. Name the file `ProductRepository.java`:
+In the account project, right-click on the `src/main/java/com/redhat/bankdemo/service` directory and select **New File**. Name the file `AccountRepository.java`:
 
-image::newfile.png[catalog-setup, 700]
+image::newfile.png[account-setup, 700]
 
-image::newfile-name.png[catalog-setup, 600]
+image::newfile-name.png[account-setup, 600]
 
 In the file, add this code:
 
 [source,java, role="copypaste"]
 ----
-package com.redhat.coolstore.service;
+package com.redhat.bankdemo.service;
 
 import java.util.List;
 
-import com.redhat.coolstore.model.Product;
+import com.redhat.bankdemo.model.Account;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Repository;
 
 @Repository
-public class ProductRepository {
+public class AccountRepository {
 
     //TODO: Autowire the jdbcTemplate here
 
     //TODO: Add row mapper here
 
-    //TODO: Create a method for returning all products
+    //TODO: Create a method for returning all accounts
 
-    //TODO: Create a method for returning one product
+    //TODO: Create a method for returning one account
 
 }
 ----
@@ -190,7 +190,7 @@ data storage, like a NoSQL database.
 ====
 
 Spring Data provides a convenient way for us to access data without having to write a lot of boiler plate code. One way to do that
-is to use a _JdbcTemplate_. First we need to autowire that as a member to _ProductRepository_. Add these at the
+is to use a _JdbcTemplate_. First we need to autowire that as a member to _AccountRepository_. Add these at the
 `TODO: Autowire the jdbcTemplate here` marker:
 
 [source, java, role="copypaste"]
@@ -204,37 +204,42 @@ going to define the _RowMapper_ like this. Add these at the `<!-- TODO: Add row 
 
 [source, java, role="copypaste"]
 ----
-    private RowMapper<Product> rowMapper = (rs, rowNum) -> new Product(
-            rs.getString("itemId"),
-            rs.getString("name"),
-            rs.getString("description"),
-            rs.getDouble("price"));
+    private RowMapper<Account> rowMapper = (rs, rowNum) -> new Account(
+      rs.getString("accountId"),
+      rs.getString("type"),
+      rs.getString("description"),
+      rs.getBigDecimal("balance"),
+      rs.getDate("balanceDate"),
+      rs.getBigDecimal("creditLine"),
+      rs.getBigDecimal("beginBalance"),
+      rs.getDate("beginBalanceTimestamp")
+    );
 ----
 
 Now we are ready to create the business methods. Let’s start with the `readAll()`. It should return a
-`List<Product>` and then we can write the query as `SELECT * FROM catalog` and use the rowMapper to map that into `Product`
-objects. Add these at the `<!-- TODO: Create a method for returning all products -->` marker:
+`List<Account>` and then we can write the query as `SELECT * FROM account` and use the rowMapper to map that into `Account`
+objects. Add these at the `<!-- TODO: Create a method for returning all accounts -->` marker:
 
 [source, java, role="copypaste"]
 ----
-    public List<Product> readAll() {
-        return this.jdbcTemplate.query("SELECT * FROM catalog", rowMapper);
+    public List<Account> readAll() {
+        return this.jdbcTemplate.query("SELECT * FROM account", rowMapper);
     }
 ----
 
-We also need a way to find a single product element. Add these at the
-`<!-- TODO: Create a method for returning one product -->` marker:
+We also need a way to find a single account element. Add these at the
+`<!-- TODO: Create a method for returning one account -->` marker:
 
 [source, java, role="copypaste"]
 ----
-    public Product findById(String id) {
-        return this.jdbcTemplate.queryForObject("SELECT * FROM catalog WHERE itemId = ?", new Object[]{id}, rowMapper);
+    public Account findById(String id) {
+        return this.jdbcTemplate.queryForObject("SELECT * FROM account WHERE accountId = ?", new Object[]{id}, rowMapper);
     }
 ----
 
-The _ProductRepository_ should now have all the components, but we still need to tell spring how to connect to the database. For
+The _AccountRepository_ should now have all the components, but we still need to tell spring how to connect to the database. For
 local development we will use the H2 in-memory database. Later, when deploying this to OpenShift we will use the
-PostgreSQL database, which matches what we are using in production.
+PostgreSQL database, which matches what we are using in account.
 
 The Spring Framework has a lot of sane defaults that can always seem magical sometimes, but basically all we have to do to setup
 the database driver is to provide some configuration values. Open `src/main/resources/application-default.properties` and add the
@@ -242,7 +247,7 @@ following properties where the comment says `#TODO: Add database properties`.
 
 [source, properties, role="copypaste"]
 ----
-spring.datasource.url=jdbc:h2:mem:catalog;DB_CLOSE_ON_EXIT=FALSE
+spring.datasource.url=jdbc:h2:mem:account;DB_CLOSE_ON_EXIT=FALSE
 spring.datasource.username=sa
 spring.datasource.password=sa
 spring.datasource.driver-class-name=org.h2.Driver
@@ -255,25 +260,25 @@ testing.
 
 In next step of this lab, we will add the logic to expose the database content from REST endpoints using JSON format.
 
-==== 5. Create Catalog Service
+==== 5. Create Account Service
 
 Now you are going to create a service class. Later on the service class will be the one that controls the interaction with the
-inventory service, but for now it’s basically just a wrapper of the repository class.
+transaction service, but for now it’s basically just a wrapper of the repository class.
 
-Again, create a new class `CatalogService.java` in the `src/main/java/com/redhat/coolstore/service` package.
+Again, create a new class `AccountService.java` in the `src/main/java/com/redhat/bankdemo/service` package.
 
 Replace the empty class with this code:
 
 [source, java, role="copypaste"]
 ----
-package com.redhat.coolstore.service;
+package com.redhat.bankdemo.service;
 
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
-//import com.redhat.coolstore.client.InventoryClient;
-import com.redhat.coolstore.model.Product;
+//import com.redhat.bankdemo.client.TransactionClient;
+import com.redhat.bankdemo.model.Account;
 
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -281,63 +286,63 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 @Service
-public class CatalogService {
+public class AccountService {
 
     @Autowired
-    private ProductRepository repository;
+    private AccountRepository repository;
 
-    //TODO: Autowire Inventory Client
+    //TODO: Autowire Transaction Client
 
-    public Product read(String id) {
-        Product product = repository.findById(id);
-        //TODO: Update the quantity for the product by calling the Inventory service
-        return product;
+    public Account read(String id) {
+        Account account = repository.findById(id);
+        //TODO: Update the balance in account by calling Transaction service
+        return account;
     }
 
-    public List<Product> readAll() {
-        List<Product> productList = repository.readAll();
-        //TODO: Update the quantity for the products by calling the Inventory service
-        return productList;
+    public List<Account> readAll() {
+        List<Account> accountList = repository.readAll();
+        //TODO: Update the balance in accounts by calling Transaction service
+        return accountList;
     }
 
 }
 ----
 
 As you can see there are a number of `TODO` in the code, and later we will use these placeholders to add logic for calling the
-Inventory Client to get the quantity.
+Transaction Client to get the full name.
 
 Now we are ready to create the endpoints that will expose REST service.
 
-Start by creating a new class called `CatalogEndpoint.java` in the `src/main/java/com/redhat/coolstore/service` package.
+Start by creating a new class called `AccountEndpoint.java` in the `src/main/java/com/redhat/bankdemo/service` package.
 
 Replace the contents with this code:
 
 [source, java, role="copypaste"]
 ----
-package com.redhat.coolstore.service;
+package com.redhat.bankdemo.service;
 
 import java.util.List;
-import com.redhat.coolstore.model.Product;
+import com.redhat.bankdemo.model.Account;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/services")
-public class CatalogEndpoint {
+public class AccountEndpoint {
 
-    private final CatalogService catalogService;
+    private final AccountService accountService;
 
-    public CatalogEndpoint(CatalogService catalogService) {
-      this.catalogService = catalogService;
+    public AccountEndpoint(AccountService accountService) {
+      this.accountService = accountService;
     }
 
-    @GetMapping("/products")
-    public List<Product> readAll() {
-      return this.catalogService.readAll();
+    @GetMapping("/accounts")
+    public List<Account> readAll() {
+      return this.accountService.readAll();
     }
 
-    @GetMapping("/product/{id}")
-    public Product read(@PathVariable("id") String id) {
-      return this.catalogService.read(id);
+    @GetMapping("/accounts/{id}")
+    public Account read(@PathVariable("id") String id) {
+      return this.accountService.read(id);
     }
 
 }
@@ -345,17 +350,17 @@ public class CatalogEndpoint {
 
 The Spring MVC Framework by default uses _Jackson_ to serialize or map Java objects to JSON and vice-versa.  Jackson extends
 upon JAX-B and can automatically parse simple Java structures and parse them into JSON and vice versa. Our
-`Product.java` pre-created class is very simple and only contains basic attributes we do not need to tell Jackson how to parse between Product and
+`Account.java` pre-created class is very simple and only contains basic attributes we do not need to tell Jackson how to parse between Account and
 JSON.
 
-Since we now have endpoints that return the catalog we can also start the service and load the default page again, which should
-now return the products.
+Since we now have endpoints that return the account we can also start the service and load the default page again, which should
+now return the accounts.
 
 Start the application via the CodeReady Workspaces Terminal using the following command:
 
 [source,sh,role="copypaste"]
 ----
-mvn clean spring-boot:run -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/catalog
+mvn clean spring-boot:run -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/account
 ----
 
 [NOTE]
@@ -367,83 +372,91 @@ Wait for the application to start and get the `Started RestApplication in 4.025 
 
 [source,sh,role="copypaste"]
 ----
-curl http://localhost:8081/services/products | jq
+curl http://localhost:8081/services/accounts | jq
 ----
 
-You should get a full JSON array consisting of all the products:
+You should get a full JSON array consisting of all the accounts:
 
 [source,json]
 ----
   {
-    "itemId": "329299",
-    "name": "Red Fedora",
-    "desc": "Official Red Hat Fedora",
-    "price": 34.99,
-    "quantity": 0
+    "balance": 2475.54,
+    "balanceDate": "2019-10-28",
+    "beginBalance": 66.54,
+    "creditLine": 0,
+    "beginBalanceTimeStamp": "2019-07-21",
+    "transactionIds": null,
+    "accountId": "5006",
+    "description": "Checking",
+    "type": "Checking",
+    "remainingCredit": 0
   },
   { ... }
 ----
 
 You have now successfully executed the third step in this lab.
 
-Now you’ve seen how to create a REST application in Spring MVC and create a simple application that returns product.
+Now you’ve seen how to create a REST application in Spring MVC and create a simple application that returns account.
 
-In the next step, we will also call another service to enrich the endpoint response with inventory status.
+In the next step, we will also call another service to enrich the endpoint response with transaction status.
 
 [WARNING]
 ====
 Make sure to stop the service by clicking kbd:[CTRL-C] in the terminal that the app is running in!
 ====
 
-==== 6. Get inventory data
+==== 6. Get account balance data
 
-When redesigning our application to Microservices using domain driven design we have identified that Inventory and Product Catalog
-are two separate domains. However our current UI expects to retrieve data from both the Catalog Service and Inventory service in a
-singe request.
+When redesigning our application to Microservices using domain driven design we have identified that Transaction and Account
+are two separate domains. However, our current UI expects to retrieve data from the Account Service and Transaction Service in a single request.
+
+That is, the Transaction Service is the source of truth when *calculates* the account balance over the execution of any transaction in the monolith application.
+
+In the redesign, the account balance is kept with Account Service records for sake of _Eventual Consistency_ (see https://www.infoq.com/articles/microservices-design-ideals/[Principles for Microservice Design: Think IDEALS, Rather than SOLID]). It implies the usage of _Availability over Consistency_ and _Single Responsibility_ design principles.
 
 ===== Service interaction
 
-Our problem is that the user interface requires data from two services when calling the REST service on `/services/products`.
+Our problem is that the user interface requires data from two services when calling the REST service on `/services/accounts`.
 There are multiple ways to solve this like:
 
-*1. Client Side integration* - We could extend our UI to first call `/services/products` and then for each product item call
-`/services/inventory/{prodId}` to get the inventory status and then combine the result in the web browser. This would be the
-least intrusive method, but it also means that if we have 100 of products the client will make 101 requests to the server. If we
+*1. Client Side integration* - We could extend our UI to first call `/services/accounts` and then for each account item call
+`/services/transaction/{accountId}/balance` check for the account balance and then combine the result in the web browser. This would be the
+least intrusive method, but it also means that if we have 100 of accounts the client will make 101 requests to the server. If we
 have a slow internet connection this may cause issues.
 
-*2. Microservices Gateway* - Creating a gateway in front of the _Catalog Service_ that first calls the Catalog Service and then
-based on the response calls the inventory is another option. This way we can avoid lots of calls from the client to the server.
+*2. Microservices Gateway* - Creating a gateway in front of the _Account Service_ that first calls the Account Service and then
+based on the response calls the Transaction is another option. This way we can avoid lots of calls from the client to the server.
 http://camel.apache.org[Apache Camel^] provides nice capabilities to do this and if you are interested to learn
 more about this, please checkout the Coolstore Microservices example:
-http://github.com/jbossdemocentral/coolstore-microservice[Here^]
+http://github.com/jbossdemocentral/bankdemo-microservice[Here^]
 
 *3. Service-to-Service* - Depending on use-case and preferences another solution would be to do service-to-service calls
-instead. In our case means that the Catalog Service would call the Inventory service using REST to retrieve the inventory status
+instead. In our case means that the Account Service would call the Transaction service using REST to retrieve the transaction status
 and include that in the response.
 
 There are no right or wrong answers here, but since this is a workshop on application modernization using Red Hat Runtimes we will
-not choose option 1 or 2 here. Instead we are going to use option 3 and extend our Catalog to call the Inventory service.
+not choose option 1 or 2 here. Instead we are going to use option 3 and extend our Account to call the Transaction service.
 
-==== 7. Implementing the Inventory Client
+==== 7. Implementing the Transaction Client
 
-We can now create the client that calls the Inventory.
+We can now create the client that calls the Transaction.
 Netflix has provided some nice extensions to the Spring Framework that are mostly captured in the Spring Cloud project, however
 Spring Cloud is mainly focused on Pivotal Cloud Foundry and because of that Red Hat and others have contributed Spring Cloud
 Kubernetes to the Spring Cloud project, which enables the same functionallity for Kubernetes based platforms like OpenShift.
 
-The inventory client will use a Netflix project called _Feign_, which provides a nice way to avoid having to write boilerplate
+The transaction client will use a Netflix project called _Feign_, which provides a nice way to avoid having to write boilerplate
 code. Feign also integrates with Hystrix which gives us the capability to Circuit Break calls that don’t work. We will discuss this
-more later, but let’s start with the implementation of the Inventory Client. Using Feign all we have to do is create a interface
+more later, but let’s start with the implementation of the Transaction Client. Using Feign all we have to do is create a interface
 that details which parameters and return type we expect, annotate it with `@RequestMapping` and provide some details and then
 annotate the interface with `@Feign` and provide it with a name.
 
-Create the `InventoryClient.java` class in the `src/main/java/com/redhat/coolstore/client/` package in the project explorer.
+Create the `TransactionClient.java` class in the `src/main/java/com/redhat/bankdemo/client/` package in the project explorer.
 
 Add the following code to the file:
 
 [source, java, role="copypaste"]
 ----
-package com.redhat.coolstore.client;
+package com.redhat.bankdemo.client;
 
 import feign.hystrix.FallbackFactory;
 import org.springframework.cloud.openfeign.FeignClient;
@@ -453,11 +466,11 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
-@FeignClient(name="inventory")
-public interface InventoryClient {
+@FeignClient(name="transaction")
+public interface TransactionClient {
 
-    @RequestMapping(method = RequestMethod.GET, value = "/services/inventory/{itemId}", consumes = {MediaType.APPLICATION_JSON_VALUE})
-    String getInventoryStatus(@PathVariable("itemId") String itemId);
+    @RequestMapping(method = RequestMethod.GET, value = "/services/transactions/{accountId}/balance", consumes = {MediaType.APPLICATION_JSON_VALUE})
+    String checkBalance(@PathVariable("accountId") String accountId);
 
     //TODO: Add Fallback factory here
 
@@ -468,57 +481,57 @@ Open the `src/main/resources/application-default.properties` file. Add these pro
 
 [source, java, role="copypaste"]
 ----
-inventory.ribbon.listOfServers=inventory.{{ USER_ID }}-inventory.svc.cluster.local:8080
+transaction.ribbon.listOfServers=transaction.{{ USER_ID }}-transaction.svc.cluster.local:8080
 feign.hystrix.enabled=true
 ----
 
-By setting `inventory.ribbon.listOfServers` we are hard coding the actual URL of the service to `{{ USER_ID }}-inventory.svc.cluster.local:8080` (which will point to our inventory microservice we created in the last lab). If we had
+By setting `transaction.ribbon.listOfServers` we are hard coding the actual URL of the service to `{{ USER_ID }}-transaction.svc.cluster.local:8080` (which will point to our transaction microservice we created in the last lab). If we had
 multiple servers we could also add those using a comma. However using Kubernetes there is no need to have multiple endpoints
 listed here since Kubernetes has a concept of _Services_ that will internally route between multiple instances of the same
 service.
 
-Now that we have a client we can make use of it in our _CatalogService_.
+Now that we have a client we can make use of it in our _AccountService_.
 
-Open _src/main/java/com/redhat/coolstore/service/CatalogService.java_
+Open _src/main/java/com/redhat/bankdemo/service/AccountService.java_
 
-And autowire (e.g. inject) the client into it by inserting this at the `//TODO: Autowire Inventory Client` marker:
+And autowire (e.g. inject) the client into it by inserting this at the `//TODO: Autowire Transaction Client` marker:
 
 [source, java, role="copypaste"]
 ----
     @Autowired
-    private InventoryClient inventoryClient;
+    private TransactionClient transactionClient;
 ----
 
-Next, update the `read(String id)` method at the comment
-`//TODO: Update the quantity for the product by calling the Inventory service` add the following:
+Next, update the `read(String accountId)` method at the comment
+`//TODO: Update the balance in account by calling the Transaction service` add the following:
 
 [source, java, role="copypaste"]
 ----
-        JSONArray jsonArray = new JSONArray(inventoryClient.getInventoryStatus(product.getItemId()));
-        List<String> quantity = IntStream.range(0, jsonArray.length())
+        JSONArray jsonArray = new JSONArray(transactionClient.checkBalance(account.getAccountId()));
+        List<String> balance = IntStream.range(0, jsonArray.length())
             .mapToObj(index -> ((JSONObject)jsonArray.get(index))
-            .optString("quantity")).collect(Collectors.toList());
-        product.setQuantity(Integer.parseInt(quantity.get(0)));
+            .optString("balance")).collect(Collectors.toList());
+        account.setBalance(new BigDecimal(balance.get(0)));
 ----
 
-Also, don’t forget to add the import statement by un-commenting the import statement for InventoryClient near the top
+Also, don’t forget to add the import statement by un-commenting the import statement for TransactionClient near the top
 
 [source, java]
 ----
-import com.redhat.coolstore.client.InventoryClient;
+import com.redhat.bankdemo.client.TransactionClient;
 ----
 
 Also in the _readAll()_ method replace the comment
-`//TODO: Update the quantity for the products by calling the Inventory service` with the following:
+`//TODO: Update the balance in accounts by calling the Transaction service` with the following:
 
 [source, java, role="copypaste"]
 ----
-        productList.forEach(p -> {
-          JSONArray jsonArray = new JSONArray(this.inventoryClient.getInventoryStatus(p.getItemId()));
-          List<String> quantity = IntStream.range(0, jsonArray.length())
+        accountList.forEach(account -> {
+          JSONArray jsonArray = new JSONArray(this.transactionClient.checkBalance(account.getAccountId()));
+          List<String> balance = IntStream.range(0, jsonArray.length())
             .mapToObj(index -> ((JSONObject)jsonArray.get(index))
-            .optString("quantity")).collect(Collectors.toList());
-          p.setQuantity(Integer.parseInt(quantity.get(0)));
+            .optString("balance")).collect(Collectors.toList());
+          account.setBalance(new BigDecimal(balance.get(0)));
         });
 ----
 
@@ -529,9 +542,9 @@ commas separating the values. The internal form is an object having get and opt 
 element methods for adding or replacing values.
 ====
 
-==== 8. Create a fallback for inventory
+==== 8. Create a fallback for transaction
 
-In the previous step we added a client to call the Inventory service. Services calling services is a common practice in
+In the previous step we added a client to call the Transaction service. Services calling services is a common practice in
 Microservices Architecture, but as we add more and more services the likelihood of a problem increases dramatically. Even if each
 service has 99.9% update, if we have 100 of services our estimated up time will only be ~90%. We therefore need to plan for
 failures to happen and our application logic has to consider that dependent services are not responding.
@@ -540,26 +553,26 @@ In the previous step we used the Feign client from the Netflix cloud native libr
 for doing a REST call. However Feign also have another good property which is that we easily create fallback logic. In this case
 we will use static inner class since we want the logic for the fallback to be part of the Client and not in a separate class.
 
-In the `InventoryClient`, add the following code at the `//TODO: Add Fallback factory here` marker:
+In the `TransactionClient`, add the following code at the `//TODO: Add Fallback factory here` marker:
 
 [source, java, role="copypaste"]
 ----
     @Component
-    class InventoryClientFallbackFactory implements FallbackFactory<InventoryClient> {
+    class TransactionClientFallbackFactory implements FallbackFactory<TransactionClient> {
       @Override
-      public InventoryClient create(Throwable cause) {
-        return itemId -> "[{'quantity':-1}]";
+      public TransactionClient create(Throwable cause) {
+        return accountId -> "[{'balance':0, 'balanceDateTime':'January 1, 1970, 00:00:00 GMT'}]";
       }
     }
 ----
 
 After creating the fallback factory all we have todo is to tell Feign to use that fallback in case of an issue, by adding the
-fallbackFactory property to the `@FeignClient` annotation. and replace the existing `@FeignClient(name="inventory")` line with
+fallbackFactory property to the `@FeignClient` annotation. and replace the existing `@FeignClient(name="transaction")` line with
 this line:
 
 [source, java, role="copypaste"]
 ----
-@FeignClient(name="inventory",fallbackFactory = InventoryClient.InventoryClientFallbackFactory.class)
+@FeignClient(name="transaction",fallbackFactory = TransactionClient.TransactionClientFallbackFactory.class)
 ----
 
 === 9. Slow running services
@@ -572,7 +585,7 @@ can add defaults by adding them to the configuration.
 
 Open `src/main/resources/application-default.properties`
 
-And add this line to it at the `#TODO: Set timeout to for inventory` marker:
+And add this line to it at the `#TODO: Set timeout to for transaction` marker:
 
 [source, java, role="copypaste"]
 ----
@@ -583,14 +596,14 @@ Let's re-test our app locally. Re-build and re-run the app:
 
 [source,sh,role="copypaste"]
 ----
-mvn clean spring-boot:run -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/catalog
+mvn clean spring-boot:run -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/account
 ----
 
-Then, access the product catalog again in a separate terminal:
+Then, access the account account again in a separate terminal:
 
 [source,sh,role="copypaste"]
 ----
-curl http://localhost:8081/services/products | jq
+curl http://localhost:8081/services/accounts | jq
 ----
 
 You will see:
@@ -598,45 +611,51 @@ You will see:
 [source,json]
 ----
   {
-    "itemId": "444437",
-    "name": "Lytro Camera",
-    "desc": "Consumers who want to up their photography game are looking at newfangled cameras like the Lytro Field camera, designed to take photos with infinite focus, so you can decide later exactly where you want the focus of each image to be.",
-    "price": 44.3,
-    "quantity": 230
-  }
+    "balance": 2458.32,
+    "balanceDate": "2019-11-21",
+    "beginBalance": 66.54,
+    "creditLine": 0,
+    "beginBalanceTimeStamp": "2019-07-21",
+    "transactionIds": null,
+    "accountId": "5006",
+    "description": "Checking",
+    "type": "Checking",
+    "remainingCredit": 0
+  },
+  { ... }
 ----
 
-Notice the `"quantity": 230` - because CodeReady Workspaces runs in our OpenShift cluster, our value for `inventory.ribbon.listOfServers` we set earlier is completely valid!
+Notice the `"balance": 2458.32` and `"balanceDate": "2019-11-21"` - because CodeReady Workspaces runs in our OpenShift cluster, our value for `transaction.ribbon.listOfServers` we set earlier is completely valid!
 
-Congratulations! You now have the framework for retrieving products from the product catalog and enriching the data with
-inventory data from an external service. In next step of this lab we will deploy our application to OpenShift Container Platform
+Congratulations! You now have the framework for retrieving accounts from the account account and enriching the data with
+transaction data from an external service. In next step of this lab we will deploy our application to OpenShift Container Platform
 and then start adding additional features to take care of various aspects of cloud native microservice development.
 
 ==== 10. Add Database OpenShift
 
-Our production catalog microservice will use an external database (PostgreSQL) to house inventory data. We've created an `{{ USER_ID}}-catalog` project for you. Visit the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-catalog[Topology View for {{ USER_ID }}-catalog project^].
+Our account microservice will use an external database (PostgreSQL) to house account data. We've created an `{{ USER_ID}}-account` project for you. Visit the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-account[Topology View for {{ USER_ID }}-account project^].
 
 Click **+Add** on the left, on the _Database_ box on the project overview:
 
-image::db-catalog.png[db, 700]
+image::db-account.png[db, 700]
 
 Type in `postgres` in the search box, and click on the *PostgreSQL (ephemeral)*:
 
-image::db-catalog-postgres.png[db, 700]
+image::db-account-postgres.png[db, 700]
 
 Click on *Instantiate Template* and fill in the following fields, leaving the others as their default values:
 
-* **Namespace**: _choose `{{ USER_ID }}-catalog` for the first Namespace. Leave the second one as `openshift`_
-* **Database Service Name**: `catalog-database`
-* **PostgreSQL Connection Username**: `catalog`
+* **Namespace**: _choose `{{ USER_ID }}-account` for the first Namespace. Leave the second one as `openshift`_
+* **Database Service Name**: `account-database`
+* **PostgreSQL Connection Username**: `account`
 * **PostgreSQL Connection Password**: `mysecretpassword`
-* **PostgreSQL Database Name**: `catalog`
+* **PostgreSQL Database Name**: `account`
 
-image::db-catalog-postgres-fields.png[db, 700]
+image::db-account-postgres-fields.png[db, 700]
 
-This will deploy the database to our catalog project. Click on the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-catalog[Topology View^] to see it:
+This will deploy the database to our account project. Click on the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-account[Topology View^] to see it:
 
-==== 11. Add production configuration
+==== 11. Add account configuration
 
 Create a new file in the `src/main/resources` called `application-openshift.properties` in CodeReady Workspaces.
 
@@ -649,10 +668,10 @@ Add the following content to this file:
 
 [source, properties, role="copypaste"]
 ----
-# Production
+# Account
 server.port=8080
-spring.datasource.url=jdbc:postgresql://catalog-database:5432/catalog
-spring.datasource.username=catalog
+spring.datasource.url=jdbc:postgresql://account-database:5432/account
+spring.datasource.username=account
 spring.datasource.password=mysecretpassword
 spring.datasource.initialization-mode=always
 spring.datasource.initialize=true
@@ -661,7 +680,7 @@ spring.datasource.continue-on-error=true
 
 feign.hystrix.enabled=true
 hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds=20000
-inventory.ribbon.listOfServers=inventory.{{ USER_ID }}-inventory.svc.cluster.local:8080
+transaction.ribbon.listOfServers=transaction.{{ USER_ID }}-transaction.svc.cluster.local:8080
 ----
 
 We'll use this file by specifying a Spring _profile_ when we deploy to OpenShift.
@@ -674,7 +693,7 @@ Build and deploy the project using the following command in a Terminal:
 
 [source,sh,role="copypaste"]
 ----
-mvn clean install spring-boot:repackage -DskipTests -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/catalog
+mvn clean install spring-boot:repackage -DskipTests -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/account
 ----
 
 You should see a *BUILD SUCCESS* at the end of the build
@@ -684,40 +703,40 @@ Then deploy the project using the following command in the CodeReady Workspaces 
 
 [source,sh,role="copypaste"]
 ----
-oc project {{ USER_ID }}-catalog && \
-oc new-build registry.access.redhat.com/ubi8/openjdk-11 --binary --name=catalog-springboot -l app=catalog-springboot
+oc project {{ USER_ID }}-account && \
+oc new-build registry.access.redhat.com/ubi8/openjdk-11 --binary --name=account-springboot -l app=account-springboot
 ----
 
 And then start and watch the build, which will take about a minute to complete:
 
 [source,sh,role="copypaste"]
 ----
-oc start-build catalog-springboot --from-file $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/catalog/target/catalog-1.0.0-SNAPSHOT.jar --follow
+oc start-build account-springboot --from-file $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/account/target/account-1.0.0-SNAPSHOT.jar --follow
 ----
 
-Once the build is done, we’ll deploy it as an OpenShift application and override the spring profile to use our _production_ values.
+Once the build is done, we’ll deploy it as an OpenShift application and override the spring profile to use our _configuration_ values.
 
 [source,sh,role="copypaste"]
 ----
-oc new-app catalog-springboot --as-deployment-config -e JAVA_OPTS_APPEND='-Dspring.profiles.active=openshift' 
+oc new-app account-springboot --as-deployment-config -e JAVA_OPTS_APPEND='-Dspring.profiles.active=openshift' 
 ----
 
 and run this to expose your service to the world and add a health check:
 
 [source,sh,role="copypaste"]
 ----
-oc expose service catalog-springboot && oc set probe deployment/catalog-springboot  --readiness --get-url=http://:8080 --initial-delay-seconds=5 --period-seconds=5 --failure-threshold=15
+oc expose service account-springboot && oc set probe deployment/account-springboot  --readiness --get-url=http://:8080 --initial-delay-seconds=5 --period-seconds=5 --failure-threshold=15
 
 ----
 
-Finally, make sure it’s actually done rolling out. Visit the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-catalog[Topology View^] for the catalog, and ensure you get the blue circles!
+Finally, make sure it’s actually done rolling out. Visit the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-account[Topology View^] for the account, and ensure you get the blue circles!
 
-And then access the http://catalog-springboot-{{ USER_ID }}-catalog.{{ ROUTE_SUBDOMAIN}}[Catalog Web frontend^] and ensure you get the expected inventory quantity (and not `-1`):
+And then access the http://account-springboot-{{ USER_ID }}-account.{{ ROUTE_SUBDOMAIN}}[Account Web frontend^] and ensure you get the expected transaction quantity (and not `-1`):
 
-image::catalog.png[catalog, 700]
+image::account.png[account, 700]
 
-*Congratulations!* You have deployed the Catalog service as a microservice which in turn calls into the Inventory service to
-retrieve inventory data.
+*Congratulations!* You have deployed the Account service as a microservice which in turn calls into the Transaction service to
+retrieve transaction data.
 
 ==== 13. Strangling the monolith
 
@@ -725,34 +744,34 @@ So far we haven’t started https://www.martinfowler.com/bliki/StranglerApplicat
 coming into OpenShift (unless using ingress, which we are not) will pass through a route. In our monolith the web page uses client
 side REST calls to load different parts of pages.
 
-For the home page the product list is loaded via a REST call to `/services/products`. At the moment calls to that URL will
-still hit product catalog in the monolith. Now we will route these calls to our newly created catalog services instead and end up
+For the home page the account list is loaded via a REST call to `/services/accounts`. At the moment calls to that URL will
+still hit account account in the monolith. Now we will route these calls to our newly created account services instead and end up
 with something like:
 
-image::catalog-goal.png[Greeting, 700]
+image::account-goal.png[Greeting, 700]
 
 Follow the steps below to create a *Cross-origin resource sharing (CORS)* based route. CORS is a mechanism that allows restricted
 resources on a web page to be requested from another domain outside the domain from which the first resource was served.
 
-Quarkus comes with a _CORS filter_ which implements the _javax.servlet.Filter_ interface and intercepts all incoming HTTP requests. It can be enabled in the Quarkus configuration file. Add the following line in the `inventory` project (our Quarkus app created earlier) in the `src/main/resources/application.properties` file:
+Quarkus comes with a _CORS filter_ which implements the _javax.servlet.Filter_ interface and intercepts all incoming HTTP requests. It can be enabled in the Quarkus configuration file. Add the following line in the `transaction` project (our Quarkus app created earlier) in the `src/main/resources/application.properties` file:
 
 [source, properties, role="copypaste"]
 ----
 %prod.quarkus.http.cors=true
 ----
 
-Rebuild and redeploy the *inventory* application using this command (which will again use the OpenShift Quarkus extension to deploy):
+Rebuild and redeploy the *transaction* application using this command (which will again use the OpenShift Quarkus extension to deploy):
 
 [source,sh,role="copypaste"]
 ----
-oc project {{USER_ID}}-inventory && \
-mvn clean package -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/inventory -DskipTests
+oc project {{USER_ID}}-transaction && \
+mvn clean package -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/transaction -DskipTests
 ----
 
-This will take about a minute to complete. Once the build is done, the inventory pod will be deployed automatically via DeploymentConfig Trigger in OpenShift.
+This will take about a minute to complete. Once the build is done, the transaction pod will be deployed automatically via DeploymentConfig Trigger in OpenShift.
 
-Open `CatalogEndpoint` class in `src/main/java/com/redhat/coolstore/service` of `catalog` project to allow restricted resources on
-a _product_ page of the monolith application. Replace the class-level annotations with:
+Open `AccountEndpoint` class in `src/main/java/com/redhat/bankdemo/service` of `account` project to allow restricted resources on
+a _account_ page of the monolith application. Replace the class-level annotations with:
 
 [source, java, role="copypaste"]
 ----
@@ -763,31 +782,31 @@ a _product_ page of the monolith application. Replace the class-level annotation
 
 We simply added the `@CrossOrigin` annotation.
 
-Rebuild and re-deploy the *catalog* service using the following commands:
+Rebuild and re-deploy the *account* service using the following commands:
 
 [source,sh,role="copypaste"]
 ----
-mvn clean install spring-boot:repackage -DskipTests -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/catalog && \
-oc start-build -n {{ USER_ID }}-catalog catalog-springboot --from-file $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/catalog/target/catalog-1.0.0-SNAPSHOT.jar --follow
+mvn clean install spring-boot:repackage -DskipTests -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/account && \
+oc start-build -n {{ USER_ID }}-account account-springboot --from-file $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/account/target/account-1.0.0-SNAPSHOT.jar --follow
 ----
 
-This will take about a minute to complete. Once the build is done, the catalog pod will be deployed automatically via DeploymentConfig Trigger in OpenShift.
+This will take about a minute to complete. Once the build is done, the account pod will be deployed automatically via DeploymentConfig Trigger in OpenShift.
 
-Let’s update the catalog endpoint in monolith application. In the *monolith* project, open `catalog.js` in `src/main/webapp/app/services` and add a line as shown in the image to define the value of `baseUrl`, just before the `factory.getProducts = function()` line:
+Let’s update the account endpoint in monolith application. In the *monolith* project, open `account.js` in `src/main/webapp/app/services` and add a line as shown in the image to define the value of `baseUrl`, just before the `factory.getAccounts = function()` line:
 
 [source,javascript,role="copypaste"]
 ----
-baseUrl='http://catalog-springboot-{{ USER_ID }}-catalog.{{ ROUTE_SUBDOMAIN }}/services/products';
+baseUrl='http://account-springboot-{{ USER_ID }}-account.{{ ROUTE_SUBDOMAIN }}/services/accounts';
 ----
 
-image::catalog_js_strangler.png[strangler, 700]
+image::account_js_strangler.png[strangler, 700]
 
 Rebuild and re-deploy the *monolith* project in CodeReady Workspaces Terminal:
 
 [source,sh,role="copypaste"]
 ----
-mvn clean package -DskipTests -Popenshift -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/monolith && \
-oc start-build -n {{ USER_ID }}-coolstore-dev coolstore --from-file $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/monolith/deployments/ROOT.war --follow
+mvn clean package -DskipTests -Popenshift -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/monolith && \
+oc start-build -n {{ USER_ID }}-coolstore-dev coolstore --from-file $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/monolith/deployments/ROOT.war --follow
 ----
 
 Once the build is done, the coolstore pod will be deployed automatically via DeploymentConfig Trigger in OpenShift. Ensure it’s
@@ -797,12 +816,12 @@ rolled out by visiting the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-coolstore
 
 Open the monolith UI by clicking the route URL icon (the arrow to the upper right of the blue circle for the coolstore monolith)
 
-Observe that the new catalog is being used along with the monolith:
+Observe that the new account is being used along with the monolith:
 
 image::coolstore_web.png[Greeting, 700]
 
-The screen will look the same, with proper inventory, but notice that the earlier product _Women RHEL 8 t-shirt_ is now gone, as it has been removed in
-our new catalog microservice.
+The screen will look the same, with proper transaction, but notice that the earlier account _Women RHEL 8 t-shirt_ is now gone, as it has been removed in
+our new account microservice.
 
 [NOTE]
 ====
@@ -811,12 +830,12 @@ If the web page is still same then you should clean cookies and caches in your w
 
 ==== Congratulations!
 
-You have now successfully begun to _strangle_ the monolith. Part of the monolith’s functionality (Inventory
-and Catalog) are now implemented as microservices.
+You have now successfully begun to _strangle_ the monolith. Part of the monolith’s functionality (Transaction
+and Account) are now implemented as microservices.
 
 ==== Summary
 
 In this lab you learned a bit more about developing with Spring Boot and how it can be used together with OpenShift.
 
-You created a new product catalog microservice representing functionality previously implemented in the monolithic CoolStore
-application. This new service also communicates with the inventory service to retrieve the inventory status for each product.
+You created a new account account microservice representing functionality previously implemented in the monolithic CoolStore
+application. This new service also communicates with the transaction service to retrieve the transaction status for each account.

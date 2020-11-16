@@ -19,13 +19,13 @@ The goal is to deploy this new microservice alongside the existing monolith, and
 
 image::goal.png[lab3_goal, 700]
 
-==== 1. Setup an Inventory proejct
+==== 1. Setup an Transaction proejct
 
 Run the following commands to set up your environment for this lab and start in the right directory:
 
-In the project explorer, expand the *inventory* project.
+In the project explorer, expand the *transaction* project.
 
-image::codeready-workspace-inventory-project.png[inventory_setup, 700]
+image::codeready-workspace-transaction-project.png[transaction_setup, 700]
 
 ==== 2. Examine the Maven project structure
 
@@ -40,17 +40,17 @@ While the code is surprisingly simple, under the hood this is using:
 
 `Hibernate ORM` is the de facto JPA implementation and offers you the full breadth of an Object Relational Mapper. It makes complex mappings possible, but it does not make simple and common mappings trivial. Hibernate ORM with Panache focuses on making your entities trivial and fun to write in Quarkus.
 
-Now let’s write some code and create a domain model, service interface and a RESTful endpoint to access inventory:
+Now let’s write some code and create a domain model, service interface and a RESTful endpoint to access transaction:
 
-image::inventory-arch.png[Inventory RESTful Service, 700]
+image::transaction-arch.png[Transaction RESTful Service, 700]
 
 ==== 3. Add Quarkus Extensions
 
-We will add Quarkus extensions to the Inventory application for using _Panache_ (a simplified way to access data via Hibernate ORM), a database with Postgres (in production) and _H2_ (in-memory database for testing). We'll also add the ability to add health probes (which we'll use later on) using the MicroProfile Health extension. Run the following commands to add the extensions using CodeReady Terminal:
+We will add Quarkus extensions to the Transaction application for using _Panache_ (a simplified way to access data via Hibernate ORM), a database with Postgres (in production) and _H2_ (in-memory database for testing). We'll also add the ability to add health probes (which we'll use later on) using the MicroProfile Health extension. Run the following commands to add the extensions using CodeReady Terminal:
 
 [source,sh,role="copypaste"]
 ----
-mvn -q quarkus:add-extension -Dextensions="hibernate-orm-panache, jdbc-h2, smallrye-health" -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/inventory
+mvn -q quarkus:add-extension -Dextensions="hibernate-orm-panache, jdbc-h2, smallrye-health" -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/transaction
 ----
 
 you will see:
@@ -69,19 +69,19 @@ This adds the extensions to `pom.xml`.
 There are many https://quarkus.io/extensions/[more extensions^] for Quarkus for popular frameworks like https://vertx.io/[Vert.x^], http://camel.apache.org/[Apache Camel^], http://infinispan.org/[Infinispan^], Spring (e.g. `@Autowired`), and more.
 ====
 
-==== 4. Create Inventory Entity
+==== 4. Create Transaction Entity
 
 With our skeleton project in place, let’s get to work defining the business logic.
 
-The first step is to define the model (entity) of an Inventory object. Since Quarkus uses Hibernate ORM Panache, we can re-use the
+The first step is to define the model (entity) of an Transaction object. Since Quarkus uses Hibernate ORM Panache, we can re-use the
 same model definition from our monolithic application - no need to re-write or re-architect!
 
-Under the `inventory` directory, open up the empty *Inventory.java* file in _com.redhat.coolstore_ package and paste the following code into it (identical to the
+Under the `transaction` directory, open up the empty *Transaction.java* file in _com.redhat.bankdemo_ package and paste the following code into it (identical to the
 monolith code):
 
 [source,java, role="copypaste"]
 ----
-package com.redhat.coolstore;
+package com.redhat.bankdemo;
 
 import javax.persistence.Cacheable;
 import javax.persistence.Entity;
@@ -90,14 +90,16 @@ import io.quarkus.hibernate.orm.panache.PanacheEntity;
 
 @Entity
 @Cacheable
-public class Inventory extends PanacheEntity {
+public class Transaction extends PanacheEntity {
 
-    public String itemId;
-    public String location;
-    public int quantity;
-    public String link;
+    public Long transactionId;
+    public BigDecimal amount;
+    public BigDecimal balance;
+    public Date timeStamp;
+    public String accountId;
+    public String description;
 
-    public Inventory() {
+    public Transaction() {
 
     }
 
@@ -108,30 +110,30 @@ By extending `PanacheEntity` in your entities, you will get an ID field that is 
 strategy, you can extend `PanacheEntityBase` instead and handle the ID yourself.
 
 By using Use public fields, there is no need for functionless getters and setters (those that simply get or set the field). You
-simply refer to fields like Inventory.location without the need to write a Inventory.getLocation() implementation. Panache will
+simply refer to fields like Transaction.amount without the need to write a Transaction.getAmount() implementation. Panache will
 auto-generate any getters and setters you do not write, or you can develop your own getters/setters that do more than get/set,
 which will be called when the field is accessed directly.
 
 The `PanacheEntity` superclass comes with lots of super useful static methods and you can add your own in your derived entity
 class. Much like traditional object-oriented programming it’s natural and recommended to place custom queries as close to the
-entity as possible, ideally within the entity definition itself. Users can just start using your entity Inventory by typing
-Inventory, and get completion for all the operations in a single place.
+entity as possible, ideally within the entity definition itself. Users can just start using your entity Transaction by typing
+Transaction, and get completion for all the operations in a single place.
 
 When an entity is annotated with `@Cacheable`, all its field values are cached except for collections and relations to other
 entities. This means the entity can be loaded quicker without querying the database for frequently-accessed, but rarely-changing
 data.
 
-==== 5. Define the RESTful endpoint of Inventory
+==== 5. Define the RESTful endpoint of Transaction
 
-In this step we will mirror the abstraction of a _service_ so that we can inject the Inventory _service_ into various places (like
+In this step we will mirror the abstraction of a _service_ so that we can inject the Transaction _service_ into various places (like
 a RESTful resource endpoint) in the future. This is the same approach that our monolith uses, so we can re-use this idea again.
-Open up the empty *InventoryResource.java* class in the _com.redhat.coolstore_ package.
+Open up the empty *TransactionResource.java* class in the _com.redhat.bankdemo_ package.
 
 Add this code to it:
 
 [source,java, role="copypaste"]
 ----
-package com.redhat.coolstore;
+package com.redhat.bankdemo;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -150,22 +152,22 @@ import javax.ws.rs.ext.Provider;
 
 import org.jboss.resteasy.annotations.jaxrs.PathParam;
 
-@Path("/services/inventory")
+@Path("/services/transactions")
 @ApplicationScoped
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
-public class InventoryResource {
+public class TransactionResource {
 
     @GET
-    public List<Inventory> getAll() {
-        return Inventory.listAll();
+    public List<Transaction> getAll() {
+        return Transaction.listAll();
     }
 
     @GET
-    @Path("/{itemId}")
-    public List<Inventory> getAvailability(@PathParam String itemId) {
-        return Inventory.<Inventory>streamAll()
-        .filter(p -> p.itemId.equals(itemId))
+    @Path("{accountId}")
+    public List<Transaction> findByAccountId(@PathParam String accountId) {
+        return Transaction.<Transaction>streamAll()
+        .filter(t -> t.accountId.equals(accountId))
         .collect(Collectors.toList());
     }
 
@@ -189,25 +191,89 @@ public class InventoryResource {
 
 The above REST services defines two endpoints:
 
-* `/services/inventory` that is accessible via _HTTP GET_ which will return all known product Inventory entities as JSON
-* `/services/inventory/<itemId>` that is accessible via _HTTP GET_ at for example `services/inventory/329199` with the last path parameter
-being the ID for which we want inventory status.
+* `/services/transactions` that is accessible via _HTTP GET_ which will return all known product Transaction entities as JSON
+* `/services/transactions/<accountId>` that is accessible via _HTTP GET_ at for example `services/transaction/5006` with the last path parameter
+being the ID for which we want account transactions.
 
-==== 6. Add inventory data
+==== 6. Add transaction data
 
-Let’s add inventory data to the database so we can test things out. Open up the `src/main/resources/import.sql` file and copy
+Let’s add transaction data to the database so we can test things out. Open up the `src/main/resources/import.sql` file and copy
 the following SQL statements to *import.sql*:
 
 [source,sql, role="copypaste"]
 ----
-INSERT INTO INVENTORY (id, itemId, link, location, quantity) values (nextval('hibernate_sequence'), '329299', 'http://maps.google.com/?q=Raleigh', 'Raleigh', 736);
-INSERT INTO INVENTORY (id, itemId, link, location, quantity) values (nextval('hibernate_sequence'), '329199', 'http://maps.google.com/?q=Boston', 'Boston', 512);
-INSERT INTO INVENTORY (id, itemId, link, location, quantity) values (nextval('hibernate_sequence'), '165613', 'http://maps.google.com/?q=Seoul', 'Seoul', 256);
-INSERT INTO INVENTORY (id, itemId, link, location, quantity) values (nextval('hibernate_sequence'), '165614', 'http://maps.google.com/?q=Singapore', 'Singapore', 54);
-INSERT INTO INVENTORY (id, itemId, link, location, quantity) values (nextval('hibernate_sequence'), '165954', 'http://maps.google.com/?q=London', 'London', 87);
-INSERT INTO INVENTORY (id, itemId, link, location, quantity) values (nextval('hibernate_sequence'), '444434', 'http://maps.google.com/?q=NewYork', 'NewYork', 443);
-INSERT INTO INVENTORY (id, itemId, link, location, quantity) values (nextval('hibernate_sequence'), '444435', 'http://maps.google.com/?q=Paris', 'Paris', 600);
-INSERT INTO INVENTORY (id, itemId, link, location, quantity) values (nextval('hibernate_sequence'), '444437', 'http://maps.google.com/?q=Tokyo', 'Tokyo', 230);
+// Add Transaction data
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'1','5005','2019-09-01 13:00:30.000000000',200.00,4200.00,'Refund');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'10','5008','2019-09-10 13:00:30.000000000',1000.00,55601.35,'Deposit');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'11','5007','2019-09-11 13:00:30.000000000',585.00,970.08,'Airplane Tickets');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'12','5006','2019-09-12 13:00:30.000000000',-675.00,2210.00,'Mortgage Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'13','5005','2019-09-13 13:00:30.000000000',-100.00,3900.00,'ATM Withdrawal');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'14','5006','2019-09-14 13:00:30.000000000',-385.08,1824.92,'Visa Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'15','5007','2019-09-15 13:00:30.000000000',-385.08,585.00,'Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'17','5007','2019-09-17 13:00:30.000000000',26.95,611.95,'Movies');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'18','5006','2019-09-18 13:00:30.000000000',-31.00,1793.92,'Groceries');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'19','5005','2019-09-19 13:00:30.000000000',-150.00,3750.00,'ATM Withdrawal');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'20','5006','2019-09-20 13:00:30.000000000',2000.00,3173.92,'Paycheck Deposit');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'21','5007','2019-09-21 13:00:30.000000000',124.00,735.95,'Furnishings');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'23','5007','2019-09-23 13:00:30.000000000',33.12,769.07,'Hardware');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'24','5006','2019-09-24 13:00:30.000000000',-175.33,2998.59,'Utility Bill');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'25','5006','2019-09-25 13:00:30.000000000',-123.00,2875.59,'Groceries');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'26','5006','2019-09-26 13:00:30.000000000',-675.00,2200.59,'Mortgage Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'27','5007','2019-09-27 13:00:30.000000000',24.72,793.79,'Cafe');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'28','5008','2019-09-28 13:00:30.000000000',1000.00,56601.35,'Deposit');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'29','5007','2019-09-29 13:00:30.000000000',35.00,828.79,'Hair Salon');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'3','5008','2019-09-03 13:01:30.000000000',-1000.00,54601.35,'Transfer Out');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'30','5006','2019-09-30 13:00:30.000000000',-20.00,2180.59,'Gasoline');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'31','5005','2019-10-01 12:55:33.000000000',-100.00,3650.00,'ATM Withdrawal');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'32','5006','2019-10-02 12:55:33.000000000',-56.87,2123.72,'Phone Bill');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'33','5007','2019-10-03 12:55:33.000000000',67.99,896.78,'Acme Shoes');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'35','5007','2019-10-05 12:55:33.000000000',24.00,920.78,'Movies');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'36','5006','2019-10-06 12:55:33.000000000',2000.00,4123.72,'Paycheck Deposit');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'38','5006','2019-10-08 12:55:33.000000000',-100.00,4023.72,'Groceries');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'39','5007','2019-10-09 12:55:33.000000000',26.95,947.73,'Pizza');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'4','5006','2019-09-03 13:02:30.000000000',1000.00,1085.00,'Transfer In');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'41','5007','2019-10-11 12:55:33.000000000',125.00,1072.73,'Dentist');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'42','5006','2019-10-12 12:55:33.000000000',-675.00,3348.72,'Mortgage Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'43','5005','2019-10-13 12:55:33.000000000',-150.00,3500.00,'ATM Withdrawal');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'44','5006','2019-10-14 12:55:33.000000000',-947.73,2400.99,'Visa Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'45','5007','2019-10-15 12:55:33.000000000',-947.73,125.00,'Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'47','5007','2019-10-17 12:55:33.000000000',49.90,100.85,'Bookstore');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'48','5006','2019-10-18 12:55:33.000000000',-100.00,2300.99,'Groceries');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'5','5007','2019-09-05 13:03:30.000000000',33.00,199.08,'Clothing');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'50','5006','2019-10-20 12:55:33.000000000',2000.00,4300.99,'Paycheck Deposit');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'51','5007','2019-10-21 12:55:33.000000000',80.32,181.17,'Restaurant');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'53','5007','2019-10-23 12:55:33.000000000',11.78,192.95,'Electronics');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'54','5006','2019-10-24 12:55:33.000000000',-150.45,4150.54,'Utility Bill');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'55','5005','2019-10-25 12:55:33.000000000',-100.00,3400.00,'ATM Withdrawal');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'56','5006','2019-10-26 12:55:33.000000000',-675.00,3475.54,'Mortgage Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'57','5007','2019-10-27 12:55:33.000000000',24.00,216.95,'Ice Skating');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'58','5006','2019-10-28 12:55:33.000000000',-1000.00,2475.54,'Transfer Out');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'59','5008','2019-10-28 12:55:33.000000000',1000.00,57601.35,'Transfer In');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'6','5006','2019-09-06 13:04:30.000000000',2000.00,3085.00,'Paycheck Deposit');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'60','5006','2019-11-02 12:55:33.000000000',-99.22,3376.32,'Phone Bill');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'61','5007','2019-11-03 12:55:33.000000000',29.97,246.92,'Toy Store');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'62','5006','2019-11-04 12:55:33.000000000',-2000.00,376.32,'Transfer Out');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'63','5008','2019-11-05 12:55:33.000000000',2000.00,59601.35,'Transfer In');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'64','5006','2019-11-06 12:55:33.000000000',2000.00,2376.32,'Paycheck Deposit');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'65','5007','2019-11-07 12:55:33.000000000',14.69,261.61,'Cafe');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'66','5006','2019-11-08 12:55:33.000000000',-108.99,2267.33,'Groceries');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'67','5006','2019-11-09 12:55:33.000000000',-30.12,2237.21,'Gasoline');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'69','5007','2019-11-11 12:55:33.000000000',125.00,386.61,'Dentist');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'7','5005','2019-09-07 13:05:30.000000000',-200.00,4000.00,'ATM Withdrawal');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'70','5006','2019-11-12 12:55:33.000000000',-675.00,1562.21,'Mortgage Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'72','5006','2019-11-13 12:55:33.000000000',-261.61,1300.60,'Visa Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'73','5007','2019-11-14 12:55:33.000000000',-261.61,125.00,'Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'75','5007','2019-11-15 12:55:33.000000000',24.00,149.00,'Drug Store');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'76','5006','2019-11-16 12:55:33.000000000',-67.98,1232.62,'Groceries');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'78','5006','2019-11-17 12:55:33.000000000',2000.00,3232.62,'Paycheck Deposit');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'79','5007','2019-11-18 12:55:33.000000000',32.95,181.95,'CDs');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'8','5006','2019-09-08 13:06:30.000000000',-200.00,2885.00,'Car Insurance');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'81','5007','2019-11-20 12:55:33.000000000',14.10,196.05,'Sports Store');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'82','5006','2019-11-21 12:55:33.000000000',-99.30,3133.32,'Utility Bill');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'84','5006','2019-11-21 12:55:33.000000000',-675.00,2458.32,'Mortgage Payment');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'85','5007','2019-11-22 12:55:33.000000000',23.98,220.03,'Garden Supply');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'86','5005','2019-11-23 12:55:33.000000000',-100.00,3300.00,'ATM Withdrawal');
+INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'9','5007','2019-09-09 13:07:30.000000000',186.00,385.08,'Car Repair');
 ----
 
 In Development, we will configure to use local in-memory H2 database for local testing. Add these lines to
@@ -215,9 +281,9 @@ In Development, we will configure to use local in-memory H2 database for local t
 
 [source,properties,role="copypaste"]
 ----
-%dev.quarkus.datasource.url=jdbc:h2:file://projects/database.db
+%dev.quarkus.datasource.url=jdbc:h2:file://projects/transaction-database.db
 %dev.quarkus.datasource.driver=org.h2.Driver
-%dev.quarkus.datasource.username=inventory
+%dev.quarkus.datasource.username=transaction
 %dev.quarkus.datasource.password=mysecretpassword
 %dev.quarkus.datasource.max-size=8
 %dev.quarkus.datasource.min-size=2
@@ -225,42 +291,42 @@ In Development, we will configure to use local in-memory H2 database for local t
 %dev.quarkus.hibernate-orm.log.sql=false
 ----
 
-==== 7. Run Quarkus Inventory application
+==== 7. Run Quarkus Transaction application
 
 In the Terminal, run the project in _Live Coding_ mode:
 
 [source,sh,role="copypaste"]
 ----
-mvn quarkus:dev -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/inventory
+mvn quarkus:dev -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/transaction
 ----
 
 You should see a bunch of log output that ends with:
 
 [source,console]
 ----
-2020-03-19 14:41:17,171 INFO  [io.agr.pool] (main) Datasource '<default>': Initial size smaller than min. Connections will be created when necessary
-2020-03-19 14:41:17,454 INFO  [io.quarkus] (main) inventory 1.0-SNAPSHOT (running on Quarkus xx.xx.xx) started in 3.353s. Listening on: http://0.0.0.0:8080
-2020-03-19 14:41:17,457 INFO  [io.quarkus] (main) Profile dev activated. Live Coding activated.
-2020-03-19 14:41:17,457 INFO  [io.quarkus] (main) Installed features: [agroal, cdi, hibernate-orm, hibernate-orm-panache, jdbc-h2, narayana-jta, resteasy, resteasy-jsonb, smallrye-health]
+2020-11-03 14:41:17,171 INFO  [io.agr.pool] (main) Datasource '<default>': Initial size smaller than min. Connections will be created when necessary
+2020-11-03 14:41:17,454 INFO  [io.quarkus] (main) transaction 1.0-SNAPSHOT (running on Quarkus xx.xx.xx) started in 3.353s. Listening on: http://0.0.0.0:8080
+2020-11-03 14:41:17,457 INFO  [io.quarkus] (main) Profile dev activated. Live Coding activated.
+2020-11-03 14:41:17,457 INFO  [io.quarkus] (main) Installed features: [agroal, cdi, hibernate-orm, hibernate-orm-panache, jdbc-h2, narayana-jta, resteasy, resteasy-jsonb, smallrye-health]
 ----
 
 CodeReady will also detect that the Quarkus app opens port `5005` (for debugging) and `8080` (for web requests). Do not open port 5005, but when prompted, open the port `8080`, which opens a small web browser in CodeReady:
 
-image::open-port.png[Inventory RESTful Service, 700]
+image::open-port.png[Transaction RESTful Service, 700]
 
-You should see the inventory web frontend directly in CodeReady (you may need to click the _reload_ icon):
+You should see the transaction web frontend directly in CodeReady (you may need to click the _reload_ icon):
 
-image::inventory-codeready.png[Inventory RESTful Service, 700]
+image::transaction-codeready.png[Transaction RESTful Service, 700]
 
 Open a *new* CodeReady Workspaces Terminal:
 
-image::codeready-workspace-terminal.png[Inventory RESTful Service, 700]
+image::codeready-workspace-terminal.png[Transaction RESTful Service, 700]
 
 and invoke the RESTful endpoint using the following CURL commands.
 
 [source,sh,role="copypaste"]
 ----
-curl http://localhost:8080/services/inventory | jq
+curl http://localhost:8080/services/transactions | jq
 ----
 
 The output looks like:
@@ -268,20 +334,34 @@ The output looks like:
 [source,json]
 ----
   ...
-  {
-    "id": 7,
-    "itemId": "444435",
-    "link": "http://maps.google.com/?q=Paris",
-    "location": "Paris",
-    "quantity": 600
-  },
-  {
-    "id": 8,
-    "itemId": "444437",
-    "link": "http://maps.google.com/?q=Tokyo",
-    "location": "Tokyo",
-    "quantity": 230
-  }
+    {
+      "id": 68,
+      "accountId": "5006",
+      "amount": -675,
+      "balance": 2458.32,
+      "description": "Mortgage Payment",
+      "timeStamp": "2019-11-21T15:55:33Z[UTC]",
+      "transactionId": 84
+    },
+    {
+      "id": 69,
+      "accountId": "5007",
+      "amount": 23.98,
+      "balance": 220.03,
+      "description": "Garden Supply",
+      "timeStamp": "2019-11-22T15:55:33Z[UTC]",
+      "transactionId": 85
+    },
+    {
+      "id": 70,
+      "accountId": "5005",
+      "amount": -100,
+      "balance": 3300,
+      "description": "ATM Withdrawal",
+      "timeStamp": "2019-11-23T15:55:33Z[UTC]",
+      "transactionId": 86
+    }
+  ]
 ----
 
 ==== 8. Add health probe
@@ -324,11 +404,11 @@ The general _outcome_ of the health check is computed as a logical AND of all th
 ==== 9. Create your first health check
 
 Next, let’s fill in the class by creating a new RESTful endpoint which will be used by OpenShift to probe our services. Open empty
-Java class: `src/main/java/com/redhat/coolstore/InventoryHealthCheck.java` and add the following code:
+Java class: `src/main/java/com/redhat/bankdemo/TransactionHealthCheck.java` and add the following code:
 
 [source,java,role="copypaste"]
 ----
-package com.redhat.coolstore;
+package com.redhat.bankdemo;
 
 import javax.enterprise.context.ApplicationScoped;
 import javax.inject.Inject;
@@ -339,18 +419,18 @@ import org.eclipse.microprofile.health.Readiness;
 
 @Readiness
 @ApplicationScoped
-public class InventoryHealthCheck implements HealthCheck {
+public class TransactionHealthCheck implements HealthCheck {
 
     @Inject
-    private InventoryResource inventoryResource;
+    private TransactionResource transactionResource;
 
     @Override
     public HealthCheckResponse call() {
 
-        if (inventoryResource.getAll() != null) {
-            return HealthCheckResponse.named("Success of Inventory Health Check!!!").up().build();
+        if (transactionResource.getAll() != null) {
+            return HealthCheckResponse.named("Success of Transaction Health Check!!!").up().build();
         } else {
-            return HealthCheckResponse.named("Failure of Inventory Health Check!!!").down().build();
+            return HealthCheckResponse.named("Failure of Transaction Health Check!!!").down().build();
         }
     }
 }
@@ -362,7 +442,7 @@ MicroProfile's `@Readiness` annotation, which directs Quarkus to expose this end
 
 [NOTE]
 ====
-You don’t need to stop and re-run re-run the Inventory application because Quarkus will *reload the changes automatically* via the _Live Coding_ feature.
+You don’t need to stop and re-run the Transaction application because Quarkus will *reload the changes automatically* via the _Live Coding_ feature.
 ====
 
 Access the health endpoint again using _curl_ and the result looks like:
@@ -380,7 +460,7 @@ The result should be:
   "status": "UP",
   "checks": [
     {
-      "name": "Success of Inventory Health Check!!!",
+      "name": "Success of Transaction Health Check!!!",
       "status": "UP"
     },
     {
@@ -391,7 +471,7 @@ The result should be:
 }
 ----
 
-You now see the default health check, along with your new Inventory health check.
+You now see the default health check, along with your new Transaction health check.
 
 [NOTE]
 ====
@@ -404,19 +484,19 @@ Stop the Quarkus app by typing kbd:[CTRL-C] in the Terminal in which the app run
 
 ==== 10. Create OpenShift Project
 
-In this step, we will deploy our new Inventory microservice for our CoolStore application in a separate project to house
+In this step, we will deploy our new Transaction microservice for our banking application in a separate project to house
 it and keep it separate from our monolith and our other microservices we will create later on.
 
 Before going to OpenShift console, we will repackage the Quarkus application for adding a PostgreSQL extension because our
-Inventory service will connect to PostgeSQL database in production on OpenShift.
+Transaction service will connect to PostgeSQL database in production on OpenShift.
 
-Quarkus also offers the ability to automatically generate OpenShift resources based on sane default and user supplied configuration. The OpenShift extension is actually a wrapper extension that brings together the https://quarkus.io/guides/deploying-to-kubernetes[kubernetes^] and https://quarkus.io/guides/container-image#s2i[container-image-s2i^] extensions with defaults so that it’s easier for the user to get started with Quarkus on OpenShift.
+Quarkus also offers the ability to automatically generate OpenShift resources based on same default and user supplied configuration. The OpenShift extension is actually a wrapper extension that brings together the https://quarkus.io/guides/deploying-to-kubernetes[kubernetes^] and https://quarkus.io/guides/container-image#s2i[container-image-s2i^] extensions with defaults so that it’s easier for the user to get started with Quarkus on OpenShift.
 
 Add _quarkus-jdbc-postgresql_ and _openshift_ extension via CodeReady Workspaces Terminal:
 
 [source,sh,role="copypaste"]
 ----
-mvn -q quarkus:add-extension -Dextensions="jdbc-postgresql,openshift" -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/inventory
+mvn -q quarkus:add-extension -Dextensions="jdbc-postgresql,openshift" -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/transaction
 ----
 
 you will see:
@@ -440,9 +520,9 @@ Let’s `add` the following variables in _src/main/resources/application.propert
 
 [source,shell,role="copypaste"]
 ----
-%prod.quarkus.datasource.url=jdbc:postgresql://inventory-database:5432/inventory
+%prod.quarkus.datasource.url=jdbc:postgresql://transaction-database:5432/transaction
 %prod.quarkus.datasource.driver=org.postgresql.Driver
-%prod.quarkus.datasource.username=inventory
+%prod.quarkus.datasource.username=transaction
 %prod.quarkus.datasource.password=mysecretpassword
 %prod.quarkus.datasource.max-size=8
 %prod.quarkus.datasource.min-size=2
@@ -466,15 +546,15 @@ Let’s `add` the following variables in _src/main/resources/application.propert
 <5> Instructs the extension to generate an OpenShift `Route`.
 <6> Adds a nice-looking icon to the app when viewing the OpenShift Developer Toplogy
 
-In OpenShift, ensure you're in the _Developer_ perspective and then choose the `{{ USER_ID }}-inventory` project which has already been created for you.
+In OpenShift, ensure you're in the _Developer_ perspective and then choose the `{{ USER_ID }}-transaction` project which has already been created for you.
 
 There’s nothing there yet, but that’s about to change.
 
 ==== 11. Deploy to OpenShift
 
-Let’s deploy our new inventory microservice to OpenShift!
+Let’s deploy our new transaction microservice to OpenShift!
 
-Our production inventory microservice will use an external database (PostgreSQL) to house inventory data. First, deploy a new
+Our production transaction microservice will use an external database (PostgreSQL) to house transaction data. First, deploy a new
 instance of PostgreSQL. Click **+Add** on the left, on the _Database_ box on the project overview:
 
 image::db.png[db, 700]
@@ -485,19 +565,19 @@ image::db-postgres.png[db, 700]
 
 Click on *Instantiate Template* and fill in the following fields, leaving the others as their default values:
 
-* **Namespace**: _choose `{{ USER_ID }}-inventory` for the first Namespace. Leave the second one as `openshift`_
-* **Database Service Name**: `inventory-database`
-* **PostgreSQL Connection Username**: `inventory`
+* **Namespace**: _choose `{{ USER_ID }}-transaction` for the first Namespace. Leave the second one as `openshift`_
+* **Database Service Name**: `transaction-database`
+* **PostgreSQL Connection Username**: `transaction`
 * **PostgreSQL Connection Password**: `mysecretpassword`
-* **PostgreSQL Database Name**: `inventory`
+* **PostgreSQL Database Name**: `transaction`
 
-image::db-postgres-inventory-values.png[db, 700]
+image::db-postgres-transaction-values.png[db, 700]
 
 Click *Create*.
 
-This will deploy the database to our new project. Click on the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-inventory[Topology View^] to see it:
+This will deploy the database to our new project. Click on the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-transaction[Topology View^] to see it:
 
-image::inventory-database-deployment.png[inventory_db_deployments, 700]
+image::transaction-database-deployment.png[transaction_db_deployments, 700]
 
 ==== 12. Deploy to OpenShift
 
@@ -505,8 +585,8 @@ Now let's deploy the application itself. Run the following command which will bu
 
 [source,sh,role="copypaste"]
 ----
-oc project {{ USER_ID }}-inventory && \
-mvn clean package -DskipTests -f $CHE_PROJECTS_ROOT/cloud-native-workshop-v2m1-labs/inventory
+oc project {{ USER_ID }}-transaction && \
+mvn clean package -DskipTests -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/transaction
 ----
 
 The output should end with `BUILD SUCCESS`.
@@ -515,38 +595,38 @@ Finally, make sure it's actually done rolling out:
 
 [source,sh,role="copypaste"]
 ----
-oc rollout status -w dc/inventory
+oc rollout status -w dc/transaction
 ----
 
-Wait for that command to report *replication controller _inventory-1_ successfully rolled out* before continuing.
+Wait for that command to report *replication controller _transaction-1_ successfully rolled out* before continuing.
 
 And label the items with proper icons:
 
 [source,sh,role="copypaste"]
 ----
-oc label dc/inventory-database app.openshift.io/runtime=postgresql --overwrite && \
-oc label dc/inventory app.kubernetes.io/part-of=inventory --overwrite && \
-oc label dc/inventory-database app.kubernetes.io/part-of=inventory --overwrite && \
-oc annotate dc/inventory app.openshift.io/connects-to=inventory-database --overwrite && \
-oc annotate dc/inventory app.openshift.io/vcs-uri=https://github.com/RedHat-Middleware-Workshops/cloud-native-workshop-v2m1-labs.git --overwrite && \
-oc annotate dc/inventory app.openshift.io/vcs-ref=ocp-4.5 --overwrite
+oc label dc/transaction-database app.openshift.io/runtime=postgresql --overwrite && \
+oc label dc/transaction app.kubernetes.io/part-of=transaction --overwrite && \
+oc label dc/transaction-database app.kubernetes.io/part-of=transaction --overwrite && \
+oc annotate dc/transaction app.openshift.io/connects-to=transaction-database --overwrite && \
+oc annotate dc/transaction app.openshift.io/vcs-uri=https://github.com/rmarins/fsi-workshop-v2m1-labs.git --overwrite && \
+oc annotate dc/transaction app.openshift.io/vcs-ref=ocp-4.5 --overwrite
 ----
 
-Back on the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-inventory[Topology View^], make sure it's done deploying (dark blue circle):
+Back on the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-transaction[Topology View^], make sure it's done deploying (dark blue circle):
 
-image::inventory-rollout.png[inventory_db_deployments, 700]
+image::transaction-rollout.png[transaction_db_deployments, 700]
 
-Click on the Route icon above (the arrow) to access our inventory running on OpenShift:
+Click on the Route icon above (the arrow) to access our transaction running on OpenShift:
 
-image::inventory-web.png[web, 700]
+image::transaction-web.png[web, 700]
 
-The UI will refresh the inventory table every 2 seconds.
+The UI will refresh the transaction table every 2 seconds.
 
-You should also be able to access the health check logic at the _inventory_ endpoint using _curl_ in the Terminal:
+You should also be able to access the health check logic at the _transaction_ endpoint using _curl_ in the Terminal:
 
 [source,sh,role="copypaste"]
 ----
-curl $(oc get route inventory -o jsonpath={% raw %}"{.spec.host}"{% endraw %})/health/ready | jq
+curl $(oc get route transaction -o jsonpath={% raw %}"{.spec.host}"{% endraw %})/health/ready | jq
 ----
 
 You should the same JSON response:
@@ -561,7 +641,7 @@ You should the same JSON response:
       "status": "UP"
     },
     {
-      "name": "Success of Inventory Health Check!!!",
+      "name": "Success of Transaction Health Check!!!",
       "status": "UP"
     }
   ]
@@ -576,14 +656,14 @@ poll the probe:
 
 [source,sh,role="copypaste"]
 ----
-oc set probe dc/inventory --readiness --initial-delay-seconds=30
+oc set probe dc/transaction --readiness --initial-delay-seconds=30
 ----
 
 And verify it’s been changed (look at the _delay=_ value for the Readiness probe) via CodeReady Workspaces Terminal:
 
 [source,sh,role="copypaste"]
 ----
-oc describe dc/inventory | egrep 'Readiness|Liveness'
+oc describe dc/transaction | egrep 'Readiness|Liveness'
 ----
 
 The result:
@@ -597,33 +677,33 @@ In the next step, we’ll exercise the probe and watch as it fails and OpenShift
 
 ==== 14. Exercise Health Check
 
-Open the http://inventory-{{ USER_ID }}-inventory.{{ ROUTE_SUBDOMAIN}}[Inventory UI^].
+Open the http://transaction-{{ USER_ID }}-transaction.{{ ROUTE_SUBDOMAIN }}[Transaction UI^].
 
 This will open up the sample application UI in a new browser tab:
 
 image::app.png[App UI, 700]
 
-The app will begin polling the inventory as before and report success:
+The app will begin polling the transaction as before and report success:
 
-image::inventory.png[Greeting, 700]
+image::transaction.png[Greeting, 700]
 
 Now you will corrupt the service and cause its health check to start failing. To simulate the app crashing, let’s kill the
 underlying service so it stops responding. Execute via CodeReady Workspaces Terminal:
 
 [source,sh,role="copypaste"]
 ----
-oc rsh dc/inventory kill 1
+oc rsh dc/transaction kill 1
 ----
 
 This will execute the Linux *pkill* command to stop the running Java process in the container.
 
-Check out the application sample UI page and notice it is now failing to access the inventory data, and the _Last Successful
-Fetch_ counter starts increasing, indicating that the UI cannot access inventory. This could have been caused by an overloaded
+Check out the application sample UI page and notice it is now failing to access the transaction data, and the _Last Successful
+Fetch_ counter starts increasing, indicating that the UI cannot access transaction. This could have been caused by an overloaded
 server, a bug in the code, or any other reason that could make the application unhealthy.
 
-image::inventory-fail.png[Greeting, 700]
+image::transaction-fail.png[Greeting, 700]
 
-Back in the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-inventory[Topology View^], you will see the pod is failing (light blue or yellow warning circle):
+Back in the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-transaction[Topology View^], you will see the pod is failing (light blue or yellow warning circle):
 
 image::notready.png[Not Ready, 700]
 
@@ -631,22 +711,22 @@ After too many healthcheck probe failures, OpenShift will forcibly kill the pod 
 new one to take its place. Once this occurs, the light blue or yellow warning circle should return to dark blue. This should take about 30 seconds.
 
 Return to the same sample app UI (without reloading the page) and notice that the UI has automatically re-connected to the new
-service and successfully accessed the inventory once again:
+service and successfully accessed the transaction once again:
 
-image::inventory.png[Greeting, 700]
+image::transaction.png[Greeting, 700]
 
 Let's set the probe back to more appropriate values:
 
 [source,sh,role="copypaste"]
 ----
-oc set probe dc/inventory --readiness --initial-delay-seconds=5 --period-seconds=5 --failure-threshold=15
+oc set probe dc/transaction --readiness --initial-delay-seconds=5 --period-seconds=5 --failure-threshold=15
 ----
 
 === Summary
 
 You learned a bit more about what Quarkus is, and how it can be used to create modern Java microservice-oriented applications.
 
-You created a new Inventory microservice representing functionality previously implmented in the monolithic CoolStore application.
+You created a new Transaction microservice representing functionality previously implemented in the monolithic Dukes Bank application.
 For now this new microservice is completely disconnected from our monolith and is not very useful on its own. In future steps you will link this and other microservices into the monolith to begin the process of
 https://www.martinfowler.com/bliki/StranglerApplication.html[strangling the monolith^].
 
