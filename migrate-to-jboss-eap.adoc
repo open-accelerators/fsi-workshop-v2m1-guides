@@ -193,6 +193,8 @@ image::codeready-workspace-delete-weblogic.png[codeready-workspace-convert, 500]
 
 === 8. Fix the code
 
+It's necessary to remove the explicit reference to `WeblogicTransactionManagerLookup` in the persistence configurations. Also, set the proper _JNDI_ name for the datasource in *JBoss EAP 7*: `java:jboss/datasources/DukesBankDS`.
+
 In the `monolith` directory, open the `dukesbank-ejb/src/main/resources/META-INF/persistence.xml` file and replace its contents with:
 
 [source,xml, role="copypaste"]
@@ -204,15 +206,15 @@ In the `monolith` directory, open the `dukesbank-ejb/src/main/resources/META-INF
         xsi:schemaLocation="
         http://java.sun.com/xml/ns/persistence
         http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd">
-        <persistence-unit name="dukesbank-ejb"
-                transaction-type="JTA">
-                <jta-data-source>java:jboss/DukesBankDS</jta-data-source>
-                  <properties>
-                          <property name="hibernate.dialect" value="org.hibernate.dialect.MySQL5Dialect" />
-                          <property name="hibernate.hbm2ddl.auto" value="validate" />
-                          <property name="hibernate.show_sql" value="true" />
-                  </properties>
-        </persistence-unit>
+    <persistence-unit name="dukesbank-ejb"
+            transaction-type="JTA">
+            <jta-data-source>java:jboss/datasources/DukesBankDS</jta-data-source>
+                <properties>
+                        <property name="hibernate.dialect" value="org.hibernate.dialect.MySQL5Dialect" />
+                        <property name="hibernate.hbm2ddl.auto" value="update" />
+                        <property name="hibernate.show_sql" value="true" />
+                </properties>
+    </persistence-unit>
 </persistence>
 ----
 
