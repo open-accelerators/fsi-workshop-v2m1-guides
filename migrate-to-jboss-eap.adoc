@@ -363,7 +363,7 @@ Go to the _Topology_ view to see the elements that were deployed.
 The *Topology* view in the _Developer_ perspective of the web console provides a visual representation of all the applications
 within a project, their build status, and the components and services associated with them.
 
-image::coolstore_topology.png[create_new, 700]
+image::dukesbank_topology.png[create_new, 700]
 
 You can see the _mysql_ database running (with a dark blue circle), and the dukesbank monolith, which has not yet been deployed or started.
 
@@ -422,7 +422,7 @@ oc annotate dc/dukesbank app.openshift.io/vcs-uri=https://github.com/rmarins/fsi
 oc annotate dc/dukesbank app.openshift.io/vcs-ref=ocp-4.5 --overwrite
 ----
 
-image::coolstore-labels.png[create_new, 600]
+image::dukesbank-labels.png[create_new, 600]
 
 You have not yet deployed the container image built in previous steps, but you’ll do that next.
 
@@ -477,7 +477,7 @@ image::route_link.png[route_link, 400]
 
 Now you are using the same application that we built locally on OpenShift. That wasn’t too hard right?
 
-image::coolstore_web.png[coolstore_web, 700]
+image::dukesbank_web.png[dukesbank_web, 700]
 
 ==== Summary
 
