@@ -450,7 +450,7 @@ image which will be automatically deployed into the project, thanks to the _Depl
 
 [source,sh,role="copypaste"]
 ----
-oc start-build dukesbank --from-file $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/monolith/deployments/ROOT.war
+oc start-build dukesbank --from-file $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/monolith/dukesbank-war/deployments/ROOT.war
 ----
 
 Back in the topology view, you should see the monolith being built:
