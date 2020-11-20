@@ -86,6 +86,9 @@ package com.redhat.bankdemo;
 import javax.persistence.Cacheable;
 import javax.persistence.Entity;
 
+import java.math.BigDecimal;
+import java.util.Date;
+
 import io.quarkus.hibernate.orm.panache.PanacheEntity;
 
 @Entity
