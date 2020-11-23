@@ -328,7 +328,7 @@ and invoke the RESTful endpoint using the following CURL commands.
 
 [source,sh,role="copypaste"]
 ----
-curl http://localhost:8080/services/transactions | jq
+curl -s http://localhost:8080/services/transactions | jq
 ----
 
 The output looks like:
