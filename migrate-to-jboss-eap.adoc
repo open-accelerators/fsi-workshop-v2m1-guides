@@ -483,6 +483,11 @@ Test the application by clicking on the Route link:
 
 image::route_link.png[route_link, 400]
 
+You must then get logged in with the testing bankdemo user `200`.
+
+* Username: `200`
+* Password: `jboss@123`
+
 ==== Congratulations!
 
 Now you are using the same application that we built locally on OpenShift. That wasn’t too hard right?
