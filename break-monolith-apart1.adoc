@@ -504,7 +504,7 @@ you will see:
 [source,sh]
 ----
 ✅ Extension io.quarkus:quarkus-openshift has been installed
-✅ Extension io.quarkus:quarkus-jdbc-postgresql has been installed
+✅ Extension io.quarkus:quarkus-jdbc-mysql has been installed
 ----
 
 Quarkus supports the notion of _configuration profiles_. These allows you to have multiple configurations in the same file and
