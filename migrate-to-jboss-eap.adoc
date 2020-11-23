@@ -473,6 +473,12 @@ Wait for the deployment to complete and the dark blue circle:
 
 image::monolith_wait.png[building, 700]
 
+Next, configure the route to redirect to the full path of the application endpoint:
+
+----
+oc patch route/dukesbank -p '{"spec":{"path":"/bank"}}'
+----
+
 Test the application by clicking on the Route link:
 
 image::route_link.png[route_link, 400]
