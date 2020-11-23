@@ -202,7 +202,6 @@ the following SQL statements to *import.sql*:
 
 [source,sql, role="copypaste"]
 ----
-// Add Transaction data
 INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'1','5005','2019-09-01 13:00:30.000000000',200.00,4200.00,'Refund');
 INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'10','5008','2019-09-10 13:00:30.000000000',1000.00,55601.35,'Deposit');
 INSERT INTO TRANSACTION (id, transactionId, accountId, timeStamp, amount, balance, description) VALUES(nextval('hibernate_sequence'),'11','5007','2019-09-11 13:00:30.000000000',585.00,970.08,'Airplane Tickets');
