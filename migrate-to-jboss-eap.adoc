@@ -274,8 +274,14 @@ At the `<!-- TODO: Add OpenShift profile here -->` we are going to add a the fol
           <build>
               <plugins>
                   <plugin>
+                      <artifactId>maven-ear-plugin</artifactId>
+                      <configuration>
+                            <outputDirectory>${basedir}/deployments</outputDirectory>
+		                    <finalName>ROOT</finalName>
+                      </configuration>
+                  </plugin>
+                  <plugin>
                       <artifactId>maven-war-plugin</artifactId>
-                      <version>2.6</version>
                       <configuration>
                           <webResources>
                               <resource>
@@ -284,8 +290,6 @@ At the `<!-- TODO: Add OpenShift profile here -->` we are going to add a the fol
                                   <targetPath>WEB-INF</targetPath>
                               </resource>
                           </webResources>
-                          <outputDirectory>${basedir}/deployments</outputDirectory>
-                          <warName>ROOT</warName>
                       </configuration>
                   </plugin>
               </plugins>
@@ -450,7 +454,7 @@ image which will be automatically deployed into the project, thanks to the _Depl
 
 [source,sh,role="copypaste"]
 ----
-oc start-build dukesbank --from-file $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/monolith/deployments/ROOT.war
+oc start-build dukesbank --from-dir $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/monolith/dukesbank-ear/deployments
 ----
 
 Back in the topology view, you should see the monolith being built:
