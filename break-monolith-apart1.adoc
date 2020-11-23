@@ -19,7 +19,7 @@ The goal is to deploy this new microservice alongside the existing monolith, and
 
 image::goal.png[lab3_goal, 700]
 
-==== 1. Setup an Transaction proejct
+==== 1. Setup an Transaction project
 
 Run the following commands to set up your environment for this lab and start in the right directory:
 
@@ -496,7 +496,7 @@ Add _quarkus-jdbc-postgresql_ and _openshift_ extension via CodeReady Workspaces
 
 [source,sh,role="copypaste"]
 ----
-mvn -q quarkus:add-extension -Dextensions="jdbc-postgresql,openshift" -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/transaction
+mvn -q quarkus:add-extension -Dextensions="jdbc-mysql,openshift" -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/transaction
 ----
 
 you will see:
