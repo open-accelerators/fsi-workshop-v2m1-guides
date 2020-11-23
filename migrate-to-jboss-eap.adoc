@@ -413,7 +413,7 @@ Next, label the components so that they get proper icons by running this command
 
 [source,sh,role="copypaste"]
 ----
-oc label dc/dukesbank-mysql app.openshift.io/runtime=mysql --overwrite && \
+oc label dc/dukesbank-mysql app.openshift.io/runtime=mysql-database --overwrite && \
 oc label dc/dukesbank app.openshift.io/runtime=jboss --overwrite && \
 oc label dc/dukesbank-mysql app.kubernetes.io/part-of=dukesbank --overwrite && \
 oc label dc/dukesbank app.kubernetes.io/part-of=dukesbank --overwrite && \
