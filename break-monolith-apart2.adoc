@@ -179,7 +179,7 @@ public class AccountRepository {
 
     //TODO: Create a method for returning all accounts
 
-    //TODO: Create a method for returning one account
+    //TODO: Create a method for returning accounts by customerId
 
 }
 ----
@@ -202,7 +202,7 @@ is to use a _JdbcTemplate_. First we need to autowire that as a member to _Accou
 ----
 
 The _JdbcTemplate_ require that we provide a _RowMapper_ so that it can map between rows in the query to Java Objects. We are
-going to define the _RowMapper_ like this. Add these at the `<!-- TODO: Add row mapper here -->` marker:
+going to define the _RowMapper_ like this. Add these at the `//TODO: Add row mapper here` marker:
 
 [source, java, role="copypaste"]
 ----
@@ -220,7 +220,7 @@ going to define the _RowMapper_ like this. Add these at the `<!-- TODO: Add row 
 
 Now we are ready to create the business methods. Let’s start with the `readAll()`. It should return a
 `List<Account>` and then we can write the query as `SELECT * FROM account` and use the rowMapper to map that into `Account`
-objects. Add these at the `<!-- TODO: Create a method for returning all accounts -->` marker:
+objects. Add these at the `//TODO: Create a method for returning all accounts` marker:
 
 [source, java, role="copypaste"]
 ----
@@ -229,13 +229,15 @@ objects. Add these at the `<!-- TODO: Create a method for returning all accounts
     }
 ----
 
-We also need a way to find a single account element. Add these at the
-`<!-- TODO: Create a method for returning one account -->` marker:
+We also need a way to filter accounts by customer. Add these at the
+`//TODO: Create a method for returning accounts by customerId` marker:
 
 [source, java, role="copypaste"]
 ----
-    public Account findById(String id) {
-        return this.jdbcTemplate.queryForObject("SELECT * FROM account WHERE accountId = ?", new Object[]{id}, rowMapper);
+    public List<Account> findByCustomerId(String customerId) {
+        return this.jdbcTemplate.query("SELECT a.* FROM account a" +
+            " LEFT OUTER JOIN customer_account_xref c ON a.accountId = c.accountId" +
+            " WHERE c.customerId = ?", new Object[]{customerId}, rowMapper);
     }
 ----
 
@@ -299,16 +301,24 @@ public class AccountService {
 
     //TODO: Autowire Transaction Client
 
-    public Account read(String id) {
-        Account account = repository.findById(id);
-        //TODO: Update the balance in account by calling Transaction service
-        return account;
-    }
-
     public List<Account> readAll() {
         List<Account> accountList = repository.readAll();
-        //TODO: Update the balance in accounts by calling Transaction service
+        accountList.forEach(account -> {
+            updateBalanceOnTransactionClient(account);
+        });
         return accountList;
+    }
+
+    public List<Account> findByCustomerRef(String customerId) {
+        List<Account> accountList = repository.findByCustomerId(customerId);
+        accountList.forEach(account -> {
+            updateBalanceOnTransactionClient(account);
+        });
+        return accountList;
+    }
+
+    private void updateBalanceOnTransactionClient(Account account) {
+        //TODO: Update the balance in account by calling Transaction service
     }
 
 }
@@ -346,9 +356,9 @@ public class AccountEndpoint {
       return this.accountService.readAll();
     }
 
-    @GetMapping("/accounts/{id}")
-    public Account read(@PathVariable("id") String id) {
-      return this.accountService.read(id);
+    @GetMapping("/accounts/{customerId}")
+    public List<Account> listAccounts(@PathVariable("customerId") String customerId) {
+      return this.accountService.findByCustomerRef(customerId);
     }
 
 }
@@ -508,24 +518,24 @@ And autowire (e.g. inject) the client into it by inserting this at the `//TODO:
     private TransactionClient transactionClient;
 ----
 
-Next, update the `read(String accountId)` method at the comment
-`//TODO: Update the balance in account by calling the Transaction service` add the following:
+Next, update the `updateBalanceOnTransactionClient(Account account)` method at the comment
+`//TODO: Update the balance in account by calling Transaction service` add the following:
 
 [source, java, role="copypaste"]
 ----
-        JSONArray jsonArray = new JSONArray(transactionClient.checkBalance(account.getAccountId()));
+        JSONArray jsonArray = new JSONArray(this.transactionClient.checkBalance(account.getAccountId()));
         List<String> balance = IntStream.range(0, jsonArray.length())
-            .mapToObj(index -> ((JSONObject)jsonArray.get(index))
-            .optString("balance")).collect(Collectors.toList());
+        .mapToObj(index -> ((JSONObject)jsonArray.get(index))
+        .optString("balance")).collect(Collectors.toList());
         List<String> balanceDate = IntStream.range(0, jsonArray.length())
         .mapToObj(index -> ((JSONObject)jsonArray.get(index))
         .optString("balanceDateTime")).collect(Collectors.toList());
         Date dt = null;
         try {
-            dt = DateFormat.getDateInstance(DateFormat.FULL).parse(balanceDate.get(0));
-            if (dt.getTime() != 0) {
-                account.setBalance(new BigDecimal(balance.get(0)));
-            }
+        dt = DateFormat.getDateInstance(DateFormat.FULL).parse(balanceDate.get(0));
+        if (dt.getTime() != 0) {
+            account.setBalance(new BigDecimal(balance.get(0)));
+        }
         } catch (ParseException e) { }
 ----
 
@@ -534,29 +544,6 @@ Also, don’t forget to add the import statement by un-commenting the import sta
 [source, java]
 ----
 import com.redhat.bankdemo.client.TransactionClient;
-----
-
-Also in the _readAll()_ method replace the comment
-`//TODO: Update the balance in accounts by calling the Transaction service` with the following:
-
-[source, java, role="copypaste"]
-----
-        accountList.forEach(account -> {
-          JSONArray jsonArray = new JSONArray(this.transactionClient.checkBalance(account.getAccountId()));
-          List<String> balance = IntStream.range(0, jsonArray.length())
-            .mapToObj(index -> ((JSONObject)jsonArray.get(index))
-            .optString("balance")).collect(Collectors.toList());
-          List<String> balanceDate = IntStream.range(0, jsonArray.length())
-            .mapToObj(index -> ((JSONObject)jsonArray.get(index))
-            .optString("balanceDateTime")).collect(Collectors.toList());
-          Date dt = null;
-          try {
-            dt = DateFormat.getDateInstance(DateFormat.FULL).parse(balanceDate.get(0));
-            if (dt.getTime() != 0) {
-                account.setBalance(new BigDecimal(balance.get(0)));
-            }
-          } catch (ParseException e) { }          
-        });
 ----
 
 [NOTE]
