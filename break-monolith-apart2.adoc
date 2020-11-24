@@ -803,7 +803,13 @@ oc start-build -n {{ USER_ID }}-account account-springboot --from-file $CHE_PROJ
 
 This will take about a minute to complete. Once the build is done, the account pod will be deployed automatically via DeploymentConfig Trigger in OpenShift.
 
-Let’s update the account endpoint in monolith application. In the *monolith* project, open `account.js` in `src/main/webapp/app/services` and add a line as shown in the image to define the value of `baseUrl`, just before the `factory.getAccounts = function()` line:
+Looking back to the _Account_ listing in the monolith application, you will see the balance data from its monolith database.
+
+image::monolith_account_listing.png[strangler, 700]
+
+Let's replace a fragment view of the `accountList.jsp` that handles this function with *Java Server Pages*. That view part is bounded to the `CustomerBean` stateful _EJB_ in the web project (`war`).
+
+In the *monolith* project, open the `accountList.jsp` in `dukesbank-war/src/main/webapp` and replace partial content described at marker `<!-- TODO: Replace content within <center></center> with the Account microservices view -->` with the code snippet below from the _Account_ microservices view.
 
 [source,html,role="copypaste"]
 ----
@@ -899,16 +905,16 @@ oc start-build -n {{ USER_ID }}-dukesbank-dev dukesbank --from-dir $CHE_PROJECTS
 ----
 
 Once the build is done, the coolstore pod will be deployed automatically via DeploymentConfig Trigger in OpenShift. Ensure it’s
-rolled out by visiting the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-coolstore-dev[Monolith Topology^] and wait for the blue circles!
+rolled out by visiting the {{ CONSOLE_URL }}/topology/ns/{{ USER_ID }}-dukesbank-dev[Monolith Topology^] and wait for the blue circles!
 
 
 ==== 14. Test the UI
 
-Open the monolith UI by clicking the route URL icon (the arrow to the upper right of the blue circle for the coolstore monolith)
+Open the monolith UI by clicking the route URL icon (the arrow to the upper right of the blue circle for the dukesbank monolith)
 
 Observe that the new account is being used along with the monolith:
 
-image::coolstore_web.png[Greeting, 700]
+image::dukesbank_account_list.png[Greeting, 700]
 
 The screen will look the same, with proper transaction, but notice that the earlier account _Women RHEL 8 t-shirt_ is now gone, as it has been removed in
 our new account microservice.
