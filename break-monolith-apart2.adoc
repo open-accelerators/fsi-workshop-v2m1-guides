@@ -16,6 +16,8 @@ The goal is to produce something like:
 
 image::account-goal.png[Greeting, 700]
 
+The _Account_ microservice is autonomous and keep on its record the *account balance*. But it does not has the responsibility to process or calculate it, depending on the _Transaction_ microservice to check for the last *account balance update*. This relationship is sort of eventual consistency, which we'll see more details on topic *6. Get account balance data*.
+
 === What is Spring Framework?
 
 Spring is one of the most popular Java Frameworks and offers an alternative to the Java EE programming model. Spring is also very
