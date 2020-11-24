@@ -933,5 +933,5 @@ and Account) are now implemented as microservices.
 
 In this lab you learned a bit more about developing with Spring Boot and how it can be used together with OpenShift.
 
-You created a new account account microservice representing functionality previously implemented in the monolithic CoolStore
-application. This new service also communicates with the transaction service to retrieve the transaction status for each account.
+You created a new account microservice representing functionality previously implemented in the monolithic Duke's Bank
+application. This new service also communicates with the transaction service to retrieve the balance check for each account.
