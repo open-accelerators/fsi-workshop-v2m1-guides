@@ -276,6 +276,9 @@ Replace the empty class with this code:
 package com.redhat.bankdemo.service;
 
 import java.math.BigDecimal;
+import java.text.DateFormat;
+import java.text.ParseException;
+import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -514,7 +517,16 @@ Next, update the `read(String accountId)` method at the comment
         List<String> balance = IntStream.range(0, jsonArray.length())
             .mapToObj(index -> ((JSONObject)jsonArray.get(index))
             .optString("balance")).collect(Collectors.toList());
-        account.setBalance(new BigDecimal(balance.get(0)));
+        List<String> balanceDate = IntStream.range(0, jsonArray.length())
+        .mapToObj(index -> ((JSONObject)jsonArray.get(index))
+        .optString("balanceDateTime")).collect(Collectors.toList());
+        Date dt = null;
+        try {
+            dt = DateFormat.getDateInstance(DateFormat.FULL).parse(balanceDate.get(0));
+            if (dt.getTime() != 0) {
+                account.setBalance(new BigDecimal(balance.get(0)));
+            }
+        } catch (ParseException e) { }
 ----
 
 Also, don’t forget to add the import statement by un-commenting the import statement for TransactionClient near the top
@@ -534,7 +546,16 @@ Also in the _readAll()_ method replace the comment
           List<String> balance = IntStream.range(0, jsonArray.length())
             .mapToObj(index -> ((JSONObject)jsonArray.get(index))
             .optString("balance")).collect(Collectors.toList());
-          account.setBalance(new BigDecimal(balance.get(0)));
+          List<String> balanceDate = IntStream.range(0, jsonArray.length())
+            .mapToObj(index -> ((JSONObject)jsonArray.get(index))
+            .optString("balanceDateTime")).collect(Collectors.toList());
+          Date dt = null;
+          try {
+            dt = DateFormat.getDateInstance(DateFormat.FULL).parse(balanceDate.get(0));
+            if (dt.getTime() != 0) {
+                account.setBalance(new BigDecimal(balance.get(0)));
+            }
+          } catch (ParseException e) { }          
         });
 ----
 
@@ -606,7 +627,7 @@ Then, access the account account again in a separate terminal:
 
 [source,sh,role="copypaste"]
 ----
-curl http://localhost:8081/services/accounts | jq
+curl -s http://localhost:8081/services/accounts | jq
 ----
 
 You will see:
