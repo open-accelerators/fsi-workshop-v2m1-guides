@@ -498,7 +498,7 @@ Add _quarkus-jdbc-postgresql_ and _openshift_ extension via CodeReady Workspaces
 
 [source,sh,role="copypaste"]
 ----
-mvn -q quarkus:add-extension -Dextensions="jdbc-mysql,openshift" -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/transaction
+mvn -q quarkus:add-extension -Dextensions="jdbc-postgresql,openshift" -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/transaction
 ----
 
 you will see:
@@ -506,7 +506,7 @@ you will see:
 [source,sh]
 ----
 ✅ Extension io.quarkus:quarkus-openshift has been installed
-✅ Extension io.quarkus:quarkus-jdbc-mysql has been installed
+✅ Extension io.quarkus:quarkus-jdbc-postgresql has been installed
 ----
 
 Quarkus supports the notion of _configuration profiles_. These allows you to have multiple configurations in the same file and
