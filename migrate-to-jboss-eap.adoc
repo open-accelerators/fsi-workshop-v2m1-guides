@@ -434,11 +434,11 @@ You have not yet deployed the container image built in previous steps, but you�
 
 In this development project we have selected to use a process called _binary builds_, which means that instead of pointing to a
 public Git Repository and have the S2I (Source-to-Image) build process download, build, and then create a container image for us
-we are going to build locally and just upload the artifact (e.g. the `.war` file). The binary deployment will speed up the build
+we are going to build locally and just upload the artifact (e.g. the `.ear` file). The binary deployment will speed up the build
 process significantly.
 
 First, build the project once more using the `openshift` Maven profile, which will create a suitable binary for use with
-OpenShift (this is not a container image yet, but just the `.war` file). We will do this with the `oc` command line.
+OpenShift (this is not a container image yet, but just the `.ear` file). We will do this with the `oc` command line.
 
 Build the project via CodeReady Workspaces Terminal window:
 
@@ -449,7 +449,7 @@ mvn clean package -Popenshift -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/monol
 
 Wait for the build to finish and the `BUILD SUCCESS` message!
 
-And finally, start the build process that will take the `.war` file and combine it with JBoss EAP and produce a Linux container
+And finally, start the build process that will take the `.ear` file and combine it with JBoss EAP and produce a Linux container
 image which will be automatically deployed into the project, thanks to the _DeploymentConfig_ object created from the template:
 
 [source,sh,role="copypaste"]
