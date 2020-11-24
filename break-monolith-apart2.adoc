@@ -275,6 +275,7 @@ Replace the empty class with this code:
 ----
 package com.redhat.bankdemo.service;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -374,7 +375,7 @@ Wait for the application to start and get the `Started RestApplication in 4.025 
 
 [source,sh,role="copypaste"]
 ----
-curl http://localhost:8081/services/accounts | jq
+curl -s http://localhost:8081/services/accounts | jq
 ----
 
 You should get a full JSON array consisting of all the accounts:
