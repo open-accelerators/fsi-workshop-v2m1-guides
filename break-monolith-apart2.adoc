@@ -523,7 +523,7 @@ Next, update the `updateBalanceOnTransactionClient(Account account)` method at t
 
 [source, java, role="copypaste"]
 ----
-        JSONArray jsonArray = new JSONArray(this.transactionClient.checkBalance(account.getAccountId()));
+        JSONArray jsonArray = new JSONArray("[" + transactionClient.checkBalance(account.getAccountId()) + "]");
         List<String> balance = IntStream.range(0, jsonArray.length())
         .mapToObj(index -> ((JSONObject)jsonArray.get(index))
         .optString("balance")).collect(Collectors.toList());
