@@ -295,7 +295,7 @@ In Development, we will configure to use local in-memory H2 database for local t
 
 ==== 7. Run Quarkus Transaction application
 
-In the Terminal, run the project in _Live Coding_ mode:
+Swicth back to CodeReady's terminal window and run the project in _Live Coding_ mode:
 
 [source,sh,role="copypaste"]
 ----
@@ -379,7 +379,7 @@ restarted.
 When you imported the _health extension_ earlier, the `/health` endpoint is automatically exposed directly that can be used to
 run the health check procedures.
 
-Our application is still running, so you can exercise the default (no-op) health check with this command in a separate Terminal:
+Our application is still running, so you can exercise the default (no-op) health check with this command in a separate Terminal in CodeReady:
 
 [source,sh,role="copypaste"]
 ----
@@ -447,14 +447,14 @@ MicroProfile's `@Readiness` annotation, which directs Quarkus to expose this end
 You don’t need to stop and re-run the Transaction application because Quarkus will *reload the changes automatically* via the _Live Coding_ feature.
 ====
 
-Access the health endpoint again using _curl_ and the result looks like:
+Swicth back to CodeReady's terminal window to access the health endpoint again using _curl_:
 
 [source,sh,role="copypaste"]
 ----
 curl -s http://localhost:8080/health | jq
 ----
 
-The result should be:
+The result should look like:
 
 [source,json]
 ----
@@ -583,7 +583,7 @@ image::transaction-database-deployment.png[transaction_db_deployments, 700]
 
 ==== 12. Deploy to OpenShift
 
-Now let's deploy the application itself. Run the following command which will build and deploy using the OpenShift extension:
+Now let's deploy the application itself. Swicth back to CodeReady's terminal window to run the following command which will build and deploy using the OpenShift extension:
 
 [source,sh,role="copypaste"]
 ----

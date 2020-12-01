@@ -384,7 +384,7 @@ mvn clean spring-boot:run -f $CHE_PROJECTS_ROOT/fsi-workshop-v2m1-labs/account
 If you get a popup about port `8081` being available, simply dismiss it with the `X` button.
 ====
 
-Wait for the application to start and get the `Started RestApplication in 4.025 seconds (JVM running for 4.361)` log message. Then, verify the endpoint by running the following command in a separate Terminal:
+Wait for the application to start and get the `Started RestApplication in 4.025 seconds (JVM running for 4.361)` log message. Then, verify the endpoint by swicthing back to CodeReady and running the following command in a separate Terminal:
 
 [source,sh,role="copypaste"]
 ----
@@ -603,7 +603,7 @@ And add this line to it at the `#TODO: Set timeout to for transaction` marker:
 hystrix.command.default.execution.isolation.thread.timeoutInMilliseconds=20000
 ----
 
-Let's re-test our app locally. Re-build and re-run the app:
+Let's re-test our app locally. Swicth back to CodeReady's terminal window to *re-build* and *re-run* the app:
 
 [source,sh,role="copypaste"]
 ----
@@ -916,8 +916,8 @@ Observe that the new account is being used along with the monolith:
 
 image::dukesbank_account_list.png[Greeting, 700]
 
-The screen will look the same, with proper transaction, but notice that the earlier account _Women RHEL 8 t-shirt_ is now gone, as it has been removed in
-our new account microservice.
+The screen will look pretty similar, with proper account listing, but notice that the earlier account _Balances_ is now gone, since the mononith is retrieving
+the balance data from the _transaction_ microservices.
 
 [NOTE]
 ====
